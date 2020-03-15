@@ -10,7 +10,20 @@ class StrMatcher{
     ~StrMatcher(){
         if(pi != NULL) delete[] pi;
     }
-    char* kmp_matcher(char* text_, int text_length_, char* pattern_, int pattern_length_);
+    char* kmp_matcher(char* text_, int text_length_, char* pattern_, int pattern_length_){
+        compute_prefix(pattern_, pattern_length_);
+        int i = 0, j = 0;
+        while( i < text_length_ && j < pattern_length_){
+            if(j == -1 || text_[i] == pattern_[j]){
+                i++;
+                j++;
+            }else j = pi[j];
+        }
+        if(j == pattern_length_)
+            return text_ + i - j;
+        else
+            return NULL;
+    }
   private : 
     void compute_prefix(char* str_, int length_){
       if(length_ > pi_len){
@@ -38,20 +51,5 @@ class StrMatcher{
     int pi_len;
     int *pi = NULL;
 };
-
-char* StrMatcher::kmp_matcher(char* text_, int text_length_, char* pattern_, int pattern_length_){
-      compute_prefix(pattern_, pattern_length_);
-      int i = 0, j = 0;
-      while( i < text_length_ && j < pattern_length_){
-          if(j == -1 || text_[i] == pattern_[j]){
-              i++;
-              j++;
-          }else j = pi[j];
-      }
-      if(j == pattern_length_)
-          return text_ + i - j;
-      else
-          return NULL;
-}
 
 #endif // !STRMATCHER_H

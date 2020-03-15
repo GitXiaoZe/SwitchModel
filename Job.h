@@ -29,7 +29,15 @@ class Job{
         return reduce == 0;
     }
     ui MapRatio(){ return map_ratio; }
-    void setTask(int map_, int reduce_, float ratio_);
+    void setTask(int map_, int reduce_, float ratio_){
+        map = map_;
+        reduce = reduce_;
+        map_ratio = std::max(1, (int)std::ceil(map_ * ratio_));
+        if(reduce_){
+            mapTask_size = new ul[reduce_];
+            std::fill(mapTask_size, mapTask_size + reduce_, 0);
+        }
+    }
 
     char job_id[JOB_ID_LENGTH + 1];
     ul jobId;
@@ -47,15 +55,5 @@ class Job{
     ui hasSentReduceRequest;
     ui currentRequest;
 };
-
-void Job::setTask(int map_, int reduce_, float ratio_){
-    map = map_;
-    reduce = reduce_;
-    map_ratio = std::max(1, (int)std::ceil(map_ * ratio_));
-    if(reduce_){
-        mapTask_size = new ul[reduce_];
-        std::fill(mapTask_size, mapTask_size + reduce_, 0);
-    }
-}
 
 #endif // !JOB_H

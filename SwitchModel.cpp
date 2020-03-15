@@ -88,7 +88,7 @@ void SwitchModel::configureForJob(){
 
 //%s: password; %s: username;  %s: host;  %s:app id;  %s:task id;  %s:task_id;
 //#define FETCH_MAP_RESULT_COMMAND "sshpass -p %s scp %s@%s:/home/tian/Ho/hadoop-3.1.1-src/hadoop-dist/target/hadoop-3.1.1/tmp/nm-local-dir/tian/appcache/%s/output/%s/file.out.index /home/hzh/Documents/NFQueue/conf/%s.file.index.out"
-#define FETCH_MAP_RESULT_COMMAND "sshpass -p %s scp %s@%s:/home/hzh/Documents/file.out.index /home/hzh/Documents/NFQueue/conf/%s_%04u.file.out.index"
+#define FETCH_MAP_RESULT_COMMAND "sshpass -p %s scp %s@%s:/home/hzh/Documents/file.out.index /home/hzh/Documents/NFQueue/conf/%s_%06u.file.out.index"
 #define LEN 3
 
 void SwitchModel::fetchMapTaskResult(){
@@ -114,7 +114,7 @@ void SwitchModel::fetchMapTaskResult(){
 
 
 
-#define MAP_RESULT_FILE_PATH "/home/hzh/Documents/NFQueue/conf/%s_%04u.file.out.index"
+#define MAP_RESULT_FILE_PATH "/home/hzh/Documents/NFQueue/conf/%s_%06u.file.out.index"
 unsigned long convert(unsigned long d){
     unsigned char *str = (unsigned char*)&d;
     return ((unsigned long)str[0] << 56) + ((unsigned long)str[1] << 48) + ((unsigned long)str[2] << 40) + ((unsigned long)str[3] << 32) 
@@ -195,6 +195,120 @@ void SwitchModel::schedule(){
     }
 }
 
-int main(){
-    return 0;
+
+
+int SwitchModel::rejectPkt(struct nfq_q_handle* qh_, struct nfq_data* nfa_){
+    int id = 0;
+    struct nfqnl_msg_packet_hdr* ph = nfq_get_msg_packet_hdr(nfa_);
+    if(ph){
+        id = ntohl(ph->packet_id);
+    }else{
+        printf("Error during reject packet\n");
+        return -1;
+    }
+    return nfq_set_verdict(qh_, id, NF_DROP, 0, NULL);
+}
+
+int SwitchModel::sendPkt(struct nfq_q_handle* qh_, struct nfq_data* nfa_){
+    int id = 0;
+    struct nfqnl_msg_packet_hdr* ph = nfq_get_msg_packet_hdr(nfa_);
+    if(ph){
+        id = ntohl(ph->packet_id);
+    }else{
+        printf("Error during send packet\n");
+        return -1;
+    }
+    return nfq_set_verdict(qh_, id, NF_ACCEPT, 0, NULL);
+}
+
+#define RPC_UNKNOWN_TYPE 0
+
+#define RPC_SUBMIT_TYPE 1
+#define RPC_SUBMIT "submitApplication"
+
+#define RPC_ALLOCATE_TYPE 2
+#define RPC_ALLOCATE "allocate"
+
+#define RPC_FINISH_TYPE 3
+#define RPC_FINISH "finishApplicationMaster"
+
+#define RPC_GETNEWAPPLICATION_TYPE 4
+#define RPC_GETNEWAPPLICATION "getNewApplication"
+
+#define RPC_GETAPPLICATIONREPORT_TYPE 5
+#define RPC_GETAPPLICATIONREPORT "getApplicationReport"
+
+#define RPC_STARTCONTAINERS_TYPE 6
+#define RPC_STARTCONTAINERS "startContainers"
+
+#define RPC_REGISTERAPPLICATIONMASTER_TYPE 7
+#define RPC_REGISTERAPPLICATIONMASTER "registerApplicationMaster"
+
+#define RPC_DONE_TYPE 8
+#define RPC_DONE "done"
+
+#define JOB_ID_PREFIX "job_"
+#define TASK_ID_PREFIX "attempt_"
+
+#define TCP 0x6
+
+
+/*
+    unsigned char ip_header_length = (iph->ver_ihl) & 0xF;
+    printf("version = %u\n", ((ui)(iph->ver_ihl) & 0xF0) >> 4);
+    printf("ihl = %u\n", (ui)(iph->ver_ihl) & 0xF);
+    printf("tos = %u\n", (ui)(iph->tos));
+    printf("total_len = %u\n", (ui)ntohs((iph->total_len)));
+    printf("identification = %u\n", (ui)ntohs((iph->identification)));
+    printf("flag-offset = %u\n", (ui)ntohs((iph->flag_offset)));
+    printf("ttl = %u\n", (ui)(iph->ttl));
+    printf("protocol = %u\n", (ui)(iph->protocol));
+    printf("checksum = %u\n", (ui)(iph->checksum));
+    printf("source ip = %u\n", (ui)ntohl((iph->src_ip)));
+    printf("dest ip = %u\n", (ui)ntohl((iph->dest_ip)));
+    printf("\n\n");
+    
+    uc ip_header_length = ((iph->ver_ihl) & 0x0F) << 2;
+    us ip_total_length = ntohs(iph->total_len);
+    printf("header-len = %u total-len = %u\n\n", (ui)ip_header_length, (ui)ip_total_length);
+    if(ip_header_length == ip_total_length){
+        printf("No TCPHeader\n");
+        printf("---------------------------\n");
+    }else{
+        TCPHeader * tcph = (TCPHeader*)(pkt_ + ip_header_length);
+        printf("src-port = %u\n", (ui)ntohs((tcph->src_port)) );
+        printf("dest-port = %u\n", (ui)ntohs((tcph->dest_port)) );
+        printf("seq_num = %u\n", (ui)ntohl((tcph->seq_num)) );
+        printf("ack_num = %u\n", (ui)ntohl((tcph->ack_num)) );
+        printf("offset = %u\n", (ui)((tcph->offset >> 4) & 0x0F)  );
+        printf("flag = %u\n", (ui)(tcph->flag) );
+        printf("window_size = %u\n", (ui)ntohs((tcph->window_size)) );
+        printf("checksum = %u\n", (ui)(tcph->checksum) );
+        printf("urgent_ptr = %u\n", (ui)(tcph->urgent_ptr) );
+        printf("---------------------------\n");
+    }
+*/
+void SwitchModel::parsePacket(struct nfq_q_handle* qh_, struct nfq_data* nfa_, unsigned char* pkt_, int pkt_length_){
+
+    IPHeader* iph = (IPHeader*)pkt_;
+    if(iph->protocol != TCP){
+        sendPkt(qh_, nfa_);
+        return;
+    }
+    us ip_header_length = ((us)(iph->ver_ihl & 0xF)) << 2;
+    us ip_total_length = ntohs(iph->total_len);
+    
+    TCPHeader * tcph = (TCPHeader*)(pkt_ + ip_header_length);
+    us tcp_header_length = ((tcph->offset >> 4) & 0x0F) << 2;
+    if(tcp_header_length + ip_header_length == ip_total_length){ // this tcp has no payload
+        sendPkt(qh_, nfa_);
+        return;
+    }
+    ui src_ip = ntohl(iph->src_ip);
+    us src_port = ntohs(tcph->src_port);
+    uc psh_flag = tcph->flag & 0x08;
+
+    int msg_type;
+    
+    sendPkt(qh_, nfa_);
 }

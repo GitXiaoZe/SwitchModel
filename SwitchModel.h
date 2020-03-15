@@ -7,8 +7,10 @@
 #include <cstdio>
 #include <cassert>
 #include <algorithm>
-
+#include <arpa/inet.h>
 #include <sys/wait.h>
+#include <linux/netfilter.h>
+#include <libnetfilter_queue/libnetfilter_queue.h>
 
 #include "myType.h"
 #include "Job.h"
@@ -36,11 +38,15 @@ class SwitchModel{
         ~SwitchModel(){}
         ui getJobIdx(ul iport_, char* job_id_, ui job_id_length_);
         ui createJob(ul iport_, char* job_id_, ui job_id_length_, ul jobId_);
+        void parsePacket(struct nfq_q_handle* qh_, struct nfq_data* nfa_, unsigned char* pkt_, int pkt_length_);
         void fetchCongiureFileForJob();
         void configureForJob();
         void fetchMapTaskResult();
         void setReducerSize();
         void schedule();
+
+        int sendPkt(struct nfq_q_handle* qh_, struct nfq_data* data_);
+        int rejectPkt(struct nfq_q_handle* qh_, struct nfq_data* data_);
         ui job_index;
         //std::map<ul, ui> iport2idx; //???
         //std::map<ui, Job*> idx2JobPtr;
