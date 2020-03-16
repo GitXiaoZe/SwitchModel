@@ -269,6 +269,8 @@ int SwitchModel::sendPkt(struct nfq_q_handle* qh_, struct nfq_data* nfa_){
 
 #define JOB_ID_PREFIX "job_"
 #define TASK_ID_PREFIX "attempt_"
+#define MAPFLAG "MAP"
+#define REDUCEFLAG "REDUCE"
 
 #define MRAPPMASTER "MRAppMaster"
 #define MRAPPMASTER_TYPE 1 
@@ -432,6 +434,29 @@ void SwitchModel::parsePacket(struct nfq_q_handle* qh_, struct nfq_data* nfa_, u
         case RPC_REGISTERAPPLICATIONMASTER_TYPE: {
             sendPkt(qh_, nfa_);
             break;
+        }
+        case RPC_DONE_TYPE : {
+            if( strmatcher->kmp_matcher(payload, payload_length, (char*)MAPFLAG, strlen(MAPFLAG)) != NULL ){
+                char* task_id_ptr = strmatcher->kmp_matcher(payload, payload_length, (char*)TASK_ID_PREFIX, std::strlen(TASK_ID_PREFIX));
+                char* job_id_ptr = task_id_ptr + std::strlen(TASK_ID_PREFIX);
+                int first, second, third;
+                int i = 0;
+                while(job_id_ptr[i] != '_') i++;
+                first = ++i;
+                while(job_id_ptr[i] != '_') i++;
+                i++;
+                if(job_id_ptr[i] == 'm'){
+                    i+=2;
+                    second = i;
+                    while(job_id_ptr[i] != '_') i++;
+                    third = ++i;
+                    ul jobId = std::atol(job_id_ptr) * 10000 + (ul)std::atol(job_id_ptr + first);
+                    ui taskId = std::atoi(job_id_ptr + second) * 1000000 + (job_id_ptr[third] - '0');
+                    waitingMapResult->insert(std::pair<ul, ui>(jobId, taskId));
+                }
+            }
+            sendPkt(qh_, nfa_);
+            break; 
         }
         default : {
             uc psh_flag = tcph->flag & 0x08;
