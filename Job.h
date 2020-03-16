@@ -39,6 +39,8 @@ class Job{
         }
     }
 
+    void setHostIP(ui host_ip_){ host_ip = host_ip_; }
+
     char job_id[JOB_ID_LENGTH + 1];
     ul jobId;
     ui host_ip;

@@ -2,12 +2,23 @@
 
 #define BUFSIZE 4096
 
-ui SwitchModel::createJob(ul iport_, char* job_id_, ui job_id_length_, ul jobId_){
+ul SwitchModel::str2JobId(char* job_id_, ui job_id_length_){
+    int first = 0, second = 0;
+    for(int i=0; i < job_id_length_; i++){
+        if(*(job_id_ + i) == '_'){
+            if(!first) first = i + 1;
+            else second = i + 1;
+        }
+    }
+    return std::atol(job_id_ + first) * 10000 + (ul)std::atol(job_id_ + second);
+}
+
+ui SwitchModel::createJob(char* job_id_, ui job_id_length_, ul jobId_){
     std::map<ul, ui>::iterator ite = jobId2idx->find(jobId_);
     ui idx;
     if(jobId2idx->end() == ite){
         idx = job_index++;
-        iport2idx->insert( std::pair<ul, ui>(iport_, idx) );
+        //iport2idx->insert( std::pair<ul, ui>(iport_, idx) );
         idx2JobPtr->insert( std::pair<ui, Job*>(idx, new Job(job_id_, job_id_length_, idx, jobId_)) );
         jobId2idx->insert( std::pair<ul, ui>(jobId_, idx) );
     }else
@@ -16,28 +27,37 @@ ui SwitchModel::createJob(ul iport_, char* job_id_, ui job_id_length_, ul jobId_
     return idx;
 }
 
-ui SwitchModel::getJobIdx(ul iport_, char* job_id_, ui job_id_length_){
-    int first = 0, second = 0;
-    for(int i=0; i < job_id_length_; i++){
-        if(*(job_id_ + i) == '_'){
-            if(!first) first = i + 1;
-            else second = i + 1;
-        }
-    }
-    ul jobId = std::atol(job_id_ + first) * 10000 + std::atol(job_id_ + second);
+ui SwitchModel::getJobIdx(char* job_id_, ui job_id_length_, bool& create){
+    ul jobId = str2JobId(job_id_, job_id_length_);
+    create = false;
     std::map<ul, ui>::iterator ite = jobId2idx->find(jobId);
     ui idx;
     if(ite == jobId2idx->end()){
-        idx = createJob(iport_, job_id_, job_id_length_, jobId);
+        idx = createJob(job_id_, job_id_length_, jobId);
+        create = true;
     }else idx = ite->second;
     return idx;
 }
+
+ Packet* SwitchModel::getPacket(ul iport_){
+    std::map<ul, Packet*>::iterator ite = iport2Packet->find(iport_);
+    Packet* pkt = NULL;
+    if(ite == iport2Packet->end()){
+        pkt = new Packet();
+        iport2Packet->insert(std::pair<ul, Packet*>(iport_, new Packet()));
+    }else pkt = ite->second;
+    return pkt;
+ }
+
+ void SwitchModel::removePacket(ul iport_){
+    iport2Packet->erase(iport_);
+ }
 
 #define FETCH_COMMAND "sudo -u hzh /home/hzh/Documents/hadoop-3.1.2/bin/hdfs dfs -get /tmp/hadoop-yarn/staging/hzh/.staging/%s/job.xml /home/hzh/Documents/NFQueue/conf/%s_job.xml"
 
 void SwitchModel::fetchCongiureFileForJob(){
     char buf[BUFSIZE];
-    unsigned int job_index;
+    ui job_index;
     while(true){
         waitingToFetch->get(job_index);
         Job* job = (*idx2JobPtr)[job_index];
@@ -250,6 +270,11 @@ int SwitchModel::sendPkt(struct nfq_q_handle* qh_, struct nfq_data* nfa_){
 #define JOB_ID_PREFIX "job_"
 #define TASK_ID_PREFIX "attempt_"
 
+#define MRAPPMASTER "MRAppMaster"
+#define MRAPPMASTER_TYPE 1 
+
+#define YARNCHILD "YarnChild"
+#define YARNCHILD_TYPE 2
 #define TCP 0x6
 
 
@@ -304,11 +329,155 @@ void SwitchModel::parsePacket(struct nfq_q_handle* qh_, struct nfq_data* nfa_, u
         sendPkt(qh_, nfa_);
         return;
     }
-    ui src_ip = ntohl(iph->src_ip);
-    us src_port = ntohs(tcph->src_port);
-    uc psh_flag = tcph->flag & 0x08;
+
+    us payload_length = ip_total_length - ip_header_length - tcp_header_length;
+    char* payload = (char*)(tcph + tcp_header_length);
 
     int msg_type;
-    
-    sendPkt(qh_, nfa_);
+    if( strmatcher->kmp_matcher(payload, payload_length, (char*)RPC_SUBMIT, std::strlen(RPC_SUBMIT)) != NULL ) msg_type = RPC_SUBMIT_TYPE;
+    else if( strmatcher->kmp_matcher(payload, payload_length, (char*)RPC_ALLOCATE, std::strlen(RPC_ALLOCATE)) != NULL ) msg_type = RPC_ALLOCATE_TYPE;
+    else if( strmatcher->kmp_matcher(payload, payload_length, (char*)RPC_FINISH, std::strlen(RPC_FINISH)) != NULL ) msg_type = RPC_FINISH_TYPE;
+    else if( strmatcher->kmp_matcher(payload, payload_length, (char*)RPC_GETNEWAPPLICATION, std::strlen(RPC_GETNEWAPPLICATION)) != NULL ) msg_type = RPC_GETNEWAPPLICATION_TYPE;
+    else if( strmatcher->kmp_matcher(payload, payload_length, (char*)RPC_GETAPPLICATIONREPORT, std::strlen(RPC_GETAPPLICATIONREPORT)) != NULL ) msg_type = RPC_GETAPPLICATIONREPORT_TYPE;
+    else if( strmatcher->kmp_matcher(payload, payload_length, (char*)RPC_STARTCONTAINERS, std::strlen(RPC_STARTCONTAINERS)) != NULL ) msg_type = RPC_STARTCONTAINERS_TYPE;
+    else if( strmatcher->kmp_matcher(payload, payload_length, (char*)RPC_REGISTERAPPLICATIONMASTER, std::strlen(RPC_REGISTERAPPLICATIONMASTER)) != NULL  ) msg_type = RPC_REGISTERAPPLICATIONMASTER_TYPE;
+    else if(strmatcher->kmp_matcher(payload, payload_length, (char*)RPC_DONE, std::strlen(RPC_DONE)) != NULL  ) msg_type = RPC_DONE_TYPE;
+    else msg_type = RPC_UNKNOWN_TYPE;
+
+    switch(msg_type){
+        case RPC_SUBMIT_TYPE : {
+            char* job_id_ptr = strmatcher->kmp_matcher(payload, payload_length, (char*)JOB_ID_PREFIX, strlen(JOB_ID_PREFIX));
+            assert(job_id_ptr != NULL);
+            bool create = false;
+            ui idx = getJobIdx(job_id_ptr, JOB_ID_LENGTH, create);
+            if(create){
+                waitingToFetch->add(idx);
+            }
+            sendPkt(qh_, nfa_);
+            break;
+        }
+        case RPC_ALLOCATE_TYPE : {
+            sendPkt(qh_, nfa_);
+            break;
+        }
+        case RPC_FINISH_TYPE : {
+            sendPkt(qh_, nfa_);
+            break;
+        }
+        case RPC_GETNEWAPPLICATION_TYPE : {
+            sendPkt(qh_, nfa_);
+            break;
+        }
+        case RPC_GETAPPLICATIONREPORT_TYPE : {
+            sendPkt(qh_, nfa_);
+            break;
+        }
+        case RPC_STARTCONTAINERS_TYPE : {
+            uc psh_flag = tcph->flag & 0x08;
+            ul iport = (ntohl(iph->src_ip) << 16)  + ntohs(tcph->src_port);
+
+
+            bool startTask = false;
+            char *task_id_ptr = NULL, *job_id_ptr = NULL;
+            if( (task_id_ptr = strmatcher->kmp_matcher(payload, payload_length, (char*)TASK_ID_PREFIX, std::strlen(TASK_ID_PREFIX))) != NULL ){
+                startTask = true;
+            }
+            if(!startTask){ // start AM, we don't need to keep the whole packet
+                bool create = false;
+                char* job_id_ptr = strmatcher->kmp_matcher(payload, payload_length, (char*)JOB_ID_PREFIX, strlen(JOB_ID_PREFIX));
+                ui idx = getJobIdx(job_id_ptr, JOB_ID_LENGTH, create);
+                assert(!create);
+                (*idx2JobPtr)[idx]->setHostIP(ntohl(iph->dest_ip));
+            }else{ // start Task ,we need to keep the whole packet
+                if(psh_flag){
+                    char* yarnchild_flag = strmatcher->kmp_matcher(payload, payload_length, (char*)YARNCHILD, std::strlen(YARNCHILD));
+                    int len = payload_length - (yarnchild_flag - payload);
+                    task_id_ptr = strmatcher->kmp_matcher(yarnchild_flag, len, (char*)TASK_ID_PREFIX, std::strlen(TASK_ID_PREFIX));
+                    job_id_ptr = task_id_ptr + std::strlen(TASK_ID_PREFIX);
+                    int first, second, third;
+                    int i = 0;
+                    while(job_id_ptr[i] != '_') i++;
+                    first = ++i;
+                    while(job_id_ptr[i] != '_') i++;
+                    i++;
+                    if(job_id_ptr[i] == 'm'){
+                        i+=2;
+                        second = i;
+                        while(job_id_ptr[i] != '_') i++;
+                        third = ++i;
+
+                        ul jobId = std::atol(job_id_ptr) * 10000 + (ul)std::atol(job_id_ptr + first);
+                        ui taskId = std::atoi(job_id_ptr + second) * 1000000 + (job_id_ptr[third] - '0');
+                        std::map<ul, std::map<ui, ui>* >::iterator ite = job2TaskSet->find(jobId);
+                        std::map<ui, ui>* taskset;
+                        if(ite == job2TaskSet->end()){
+                            taskset = new std::map<ui, ui>();
+                            job2TaskSet->insert(std::pair<ul, std::map<ui, ui>* >(jobId, taskset));
+                        }else taskset = ite->second;
+                        taskset->insert(std::pair<ui, ui>(taskId, ntohl(iph->dest_ip)));
+                    }
+                }else{
+                    Packet* pkt = getPacket(iport);
+                    pkt->addPayload(payload, payload_length);
+                    ui seq_num = ntohl(tcph->seq_num);
+                    std::map<ul, ui>::iterator ite = iport2nextSeq->find(iport);
+                    if(ite == iport2nextSeq->end() || seq_num == ite->second){
+                        (*iport2nextSeq)[iport] = seq_num + payload_length;
+                    }
+                }
+            }
+            sendPkt(qh_, nfa_);
+            break;
+        }
+        case RPC_REGISTERAPPLICATIONMASTER_TYPE: {
+            sendPkt(qh_, nfa_);
+            break;
+        }
+        default : {
+            uc psh_flag = tcph->flag & 0x08;
+            ul iport = (ntohl(iph->src_ip) << 16)  + ntohs(tcph->src_port);
+            ui seq_num = ntohl(tcph->seq_num);
+            std::map<ul, ui>::iterator ite = iport2nextSeq->find(iport);
+            if(seq_num == ite->second){
+                Packet* pkt = getPacket(iport);
+                pkt->addPayload(payload, payload_length);
+                if(psh_flag){
+                    ui buf_len;
+                    char* buf = pkt->getPayload(&buf_len);
+                    char* yarnchild_flag = strmatcher->kmp_matcher(buf, buf_len, (char*)YARNCHILD, std::strlen(YARNCHILD));
+                    int len = payload_length - (yarnchild_flag - payload);
+                    char* task_id_ptr = strmatcher->kmp_matcher(yarnchild_flag, len, (char*)TASK_ID_PREFIX, std::strlen(TASK_ID_PREFIX));
+                    char* job_id_ptr = task_id_ptr + std::strlen(TASK_ID_PREFIX);
+                    int first, second, third;
+                    int i = 0;
+                    while(job_id_ptr[i] != '_') i++;
+                    first = ++i;
+                    while(job_id_ptr[i] != '_') i++;
+                    i++;
+                    if(job_id_ptr[i] == 'm'){
+                        i+=2;
+                        second = i;
+                        while(job_id_ptr[i] != '_') i++;
+                        third = ++i;
+
+                        ul jobId = std::atol(job_id_ptr) * 10000 + (ul)std::atol(job_id_ptr + first);
+                        ui taskId = std::atoi(job_id_ptr + second) * 1000000 + (job_id_ptr[third] - '0');
+                        std::map<ul, std::map<ui, ui>* >::iterator ite = job2TaskSet->find(jobId);
+                        std::map<ui, ui>* taskset;
+                        if(ite == job2TaskSet->end()){
+                            taskset = new std::map<ui, ui>();
+                            job2TaskSet->insert(std::pair<ul, std::map<ui, ui>* >(jobId, taskset));
+                        }else taskset = ite->second;
+                        taskset->insert(std::pair<ui, ui>(taskId, ntohl(iph->dest_ip)));
+                    }
+                    
+                    removePacket(iport);
+                    delete pkt;
+                }else{
+                    (*iport2nextSeq)[iport] = seq_num + payload_length;
+                }
+            }
+            sendPkt(qh_, nfa_);
+        }
+    }
 }
