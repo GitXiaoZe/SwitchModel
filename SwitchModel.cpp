@@ -452,7 +452,7 @@ void SwitchModel::parsePacket(struct nfq_q_handle* qh_, struct nfq_data* nfa_, u
                     third = ++i;
                     ul jobId = std::atol(job_id_ptr) * 10000 + (ul)std::atol(job_id_ptr + first);
                     ui taskId = std::atoi(job_id_ptr + second) * 1000000 + (job_id_ptr[third] - '0');
-                    waitingMapResult->insert(std::pair<ul, ui>(jobId, taskId));
+                    waitingMapResult->add(std::pair<ul, ui>(jobId, taskId));
                 }
             }
             sendPkt(qh_, nfa_);

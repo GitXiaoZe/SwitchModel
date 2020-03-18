@@ -6,6 +6,7 @@
 #include <libnetfilter_queue/libnetfilter_queue.h>
 
 #include <cstdlib>
+#include <thread>
 
 #include "SwitchModel.h"
 
@@ -16,6 +17,26 @@
 #define BUFSIZE 4096
 
 SwitchModel* swm = NULL;
+
+void fetchConfigureFileForJob_thread(SwitchModel* swm_){
+    swm_->fetchCongiureFileForJob();
+}
+
+void configureForJob_thread(SwitchModel* swm_){
+    swm_->configureForJob();
+}
+
+void fetchMapTaskResult_thread(SwitchModel* swm_){
+    swm_->fetchMapTaskResult();
+}
+
+void setReducerSize_thread(SwitchModel* swm_){
+    swm_->setReducerSize();
+}
+
+void schedule_thread(SwitchModel* swm_){
+    swm_->schedule();
+}
 
 int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* nfa, void* data){
     printf("call back\n");
@@ -71,6 +92,11 @@ int main(){
     printf("begin to initial swm\n");
     swm = new SwitchModel();
     printf("begin to start()\n");
+    std::thread subThread_1(fetchConfigureFileForJob_thread, swm);
+    std::thread subThread_2(configureForJob_thread, swm);
+    std::thread subThread_3(fetchMapTaskResult_thread, swm);
+    std::thread subThread_4(setReducerSize_thread, swm);
+    std::thread subThread_5(schedule_thread, swm);
     start();
 
     return 0;
