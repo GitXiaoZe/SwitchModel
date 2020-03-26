@@ -34,4 +34,5 @@ typedef struct{
     us urgent_ptr;
 } TCPHeader;
 
+
 #endif // !MYTYPE_H

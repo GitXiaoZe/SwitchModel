@@ -38,14 +38,23 @@ void schedule_thread(SwitchModel* swm_){
     swm_->schedule();
 }
 
+void process_thread(SwitchModel* swm_){
+    swm->processPkt();
+}
+
+void sniff_thread(SwitchModel* swm_){
+    swm_->sniff();
+}
+
 int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* nfa, void* data){
-    printf("call back\n");
+    //printf("call back\n");
     int payload_len;
     unsigned char* payload;
     payload_len = nfq_get_payload(nfa, &payload);
     if(payload_len > 0){
-        swm->parsePacket(qh, nfa, payload, payload_len);
+        swm->insertPkt(payload, payload_len);
     }
+    swm->sendPkt(qh, nfa);
     return 0;
 }
 
@@ -92,11 +101,13 @@ int main(){
     printf("begin to initial swm\n");
     swm = new SwitchModel();
     printf("begin to start()\n");
-    std::thread subThread_1(fetchConfigureFileForJob_thread, swm);
-    std::thread subThread_2(configureForJob_thread, swm);
+    std::thread subThread_1(schedule_thread, swm);
+    std::thread subThread_2(setReducerSize_thread, swm);
     std::thread subThread_3(fetchMapTaskResult_thread, swm);
-    std::thread subThread_4(setReducerSize_thread, swm);
-    std::thread subThread_5(schedule_thread, swm);
+    std::thread subThread_4(configureForJob_thread, swm);
+    std::thread subThread_5(fetchConfigureFileForJob_thread, swm);
+    std::thread subThread_6(process_thread, swm);
+    std::thread subThread_7(sniff_thread, swm);
     start();
 
     return 0;

@@ -131,9 +131,6 @@ void SwitchModel::fetchMapTaskResult(){
     }
 }
 
-
-
-
 #define MAP_RESULT_FILE_PATH "/home/hzh/Documents/NFQueue/conf/%s_%06u.file.out.index"
 unsigned long convert(unsigned long d){
     unsigned char *str = (unsigned char*)&d;
@@ -215,8 +212,6 @@ void SwitchModel::schedule(){
     }
 }
 
-
-
 int SwitchModel::rejectPkt(struct nfq_q_handle* qh_, struct nfq_data* nfa_){
     int id = 0;
     struct nfqnl_msg_packet_hdr* ph = nfq_get_msg_packet_hdr(nfa_);
@@ -239,6 +234,71 @@ int SwitchModel::sendPkt(struct nfq_q_handle* qh_, struct nfq_data* nfa_){
         return -1;
     }
     return nfq_set_verdict(qh_, id, NF_ACCEPT, 0, NULL);
+}
+
+
+#define NICNAME "ens33"
+
+void SwitchModel::sniff(){
+    int sock;
+
+    if( (sock = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_IP))) < 0){
+        printf("Error-0\n");
+        printf("%s\n", strerror(errno));
+        exit(-1);
+    }
+
+    struct ifreq stlf;
+    strcpy(stlf.ifr_name, NICNAME);
+    if(ioctl(sock, SIOCGIFFLAGS, &stlf) < 0){
+        printf("Error-1\n");
+        printf("%s\n", strerror(errno));
+        exit(-1);
+    }
+
+    stlf.ifr_flags |= IFF_PROMISC;
+    if(ioctl(sock, SIOCGIFFLAGS, &stlf) < 0){
+        printf("Error-2\n");
+        printf("%s\n", strerror(errno));
+        exit(-1);
+    }
+    
+    strcpy(stlf.ifr_name, NICNAME);
+    if(ioctl(sock, SIOCGIFINDEX, &stlf) < 0){
+        printf("Error-3\n");
+        printf("%s\n", strerror(errno));
+        exit(-1);
+    }
+
+    struct sockaddr_ll addr = {0};
+    addr.sll_family = PF_PACKET;
+    addr.sll_ifindex = stlf.ifr_ifindex;
+    addr.sll_protocol = htons(ETH_P_IP);
+    if( bind(sock, (struct sockaddr*)&addr, sizeof(addr)) < 0 ){
+        printf("Error-4\n");
+        printf("%s\n", strerror(errno));
+        exit(-1);
+    }
+
+    uc buf[BUFSIZE];
+    uc* pkt = NULL;
+    while(1){
+        int cnt = recvfrom(sock, buf, BUFSIZE, 0, NULL, NULL);
+        if(cnt < 0) continue;
+        if(cnt < 46) continue;
+        pkt = new uc[cnt - 14 + 1];
+        assert(pkt != NULL);
+        std::memcpy(pkt, buf + 14, cnt - 14);
+        waitingToProcess->add(std::pair<uc*, int>(pkt, cnt-14));
+    }
+    close(sock);
+}
+
+
+void SwitchModel::insertPkt(uc* pkt_, int pkt_length_){
+    uc* pkt = new uc[pkt_length_];
+    std::memcpy(pkt, pkt_, pkt_length_);
+    waitingToProcess->add(std::pair<uc*, int>(pkt, pkt_length_));
 }
 
 #define RPC_UNKNOWN_TYPE 0
@@ -315,11 +375,12 @@ int SwitchModel::sendPkt(struct nfq_q_handle* qh_, struct nfq_data* nfa_){
         printf("---------------------------\n");
     }
 */
-void SwitchModel::parsePacket(struct nfq_q_handle* qh_, struct nfq_data* nfa_, unsigned char* pkt_, int pkt_length_){
+
+void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
 
     IPHeader* iph = (IPHeader*)pkt_;
     if(iph->protocol != TCP){
-        sendPkt(qh_, nfa_);
+        //sendPkt(qh_, nfa_);
         return;
     }
     us ip_header_length = ((us)(iph->ver_ihl & 0xF)) << 2;
@@ -328,7 +389,7 @@ void SwitchModel::parsePacket(struct nfq_q_handle* qh_, struct nfq_data* nfa_, u
     TCPHeader * tcph = (TCPHeader*)(pkt_ + ip_header_length);
     us tcp_header_length = ((tcph->offset >> 4) & 0x0F) << 2;
     if(tcp_header_length + ip_header_length == ip_total_length){ // this tcp has no payload
-        sendPkt(qh_, nfa_);
+        //sendPkt(qh_, nfa_);
         return;
     }
 
@@ -355,23 +416,23 @@ void SwitchModel::parsePacket(struct nfq_q_handle* qh_, struct nfq_data* nfa_, u
             if(create){
                 waitingToFetch->add(idx);
             }
-            sendPkt(qh_, nfa_);
+            //sendPkt(qh_, nfa_);
             break;
         }
         case RPC_ALLOCATE_TYPE : {
-            sendPkt(qh_, nfa_);
+            //sendPkt(qh_, nfa_);
             break;
         }
         case RPC_FINISH_TYPE : {
-            sendPkt(qh_, nfa_);
+            //sendPkt(qh_, nfa_);
             break;
         }
         case RPC_GETNEWAPPLICATION_TYPE : {
-            sendPkt(qh_, nfa_);
+            //sendPkt(qh_, nfa_);
             break;
         }
         case RPC_GETAPPLICATIONREPORT_TYPE : {
-            sendPkt(qh_, nfa_);
+            //sendPkt(qh_, nfa_);
             break;
         }
         case RPC_STARTCONTAINERS_TYPE : {
@@ -428,11 +489,11 @@ void SwitchModel::parsePacket(struct nfq_q_handle* qh_, struct nfq_data* nfa_, u
                     }
                 }
             }
-            sendPkt(qh_, nfa_);
+            //sendPkt(qh_, nfa_);
             break;
         }
         case RPC_REGISTERAPPLICATIONMASTER_TYPE: {
-            sendPkt(qh_, nfa_);
+            //sendPkt(qh_, nfa_);
             break;
         }
         case RPC_DONE_TYPE : {
@@ -455,7 +516,7 @@ void SwitchModel::parsePacket(struct nfq_q_handle* qh_, struct nfq_data* nfa_, u
                     waitingMapResult->add(std::pair<ul, ui>(jobId, taskId));
                 }
             }
-            sendPkt(qh_, nfa_);
+            //sendPkt(qh_, nfa_);
             break; 
         }
         default : {
@@ -502,7 +563,15 @@ void SwitchModel::parsePacket(struct nfq_q_handle* qh_, struct nfq_data* nfa_, u
                     (*iport2nextSeq)[iport] = seq_num + payload_length;
                 }
             }
-            sendPkt(qh_, nfa_);
+            //sendPkt(qh_, nfa_);
         }
+    }
+}
+
+void SwitchModel::processPkt(){
+    std::pair<uc*, int> p;
+    while(true){
+        waitingToProcess->get(p);
+        parsePacket(p.first, p.second);
     }
 }

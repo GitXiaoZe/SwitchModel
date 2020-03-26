@@ -1,16 +1,28 @@
 #ifndef SWITCHMODEL_H
 #define SWITCHMODEL_H
 
+#include <unistd.h>
 #include <memory>
 #include <map>
 #include <utility>
 #include <cstdio>
 #include <cassert>
+#include <cerrno>
+#include <cstring>
 #include <algorithm>
 #include <arpa/inet.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <netinet/in.h>
+#include <netinet/ip.h>
+#include <net/if.h>
+#include <net/ethernet.h>
 #include <sys/wait.h>
 #include <linux/netfilter.h>
+#include <linux/if_ether.h>
+#include <linux/if_packet.h>
 #include <libnetfilter_queue/libnetfilter_queue.h>
+
 
 #include "myType.h"
 #include "Job.h"
@@ -42,7 +54,10 @@ class SwitchModel{
         ui createJob(char* job_id_, ui job_id_length_, ul jobId_);
         Packet* getPacket(ul iport_);
         void removePacket(ul iport_);
-        void parsePacket(struct nfq_q_handle* qh_, struct nfq_data* nfa_, unsigned char* pkt_, int pkt_length_);
+        void parsePacket(uc* pkt_, int pkt_length_);
+        void sniff();
+        void insertPkt(uc* pkt, int pkt_length_);
+        void processPkt();
         void fetchCongiureFileForJob();
         void configureForJob();
         void fetchMapTaskResult();
@@ -62,6 +77,7 @@ class SwitchModel{
         std::shared_ptr< std::map<ul, ui> > jobId2idx;
         std::shared_ptr< std::map<ul, std::map<ui, ui>* > > job2TaskSet;
 
+        std::shared_ptr< CP_Queue< std::pair<uc*, int>> > waitingToProcess;
         std::shared_ptr< CP_Queue<ui> > waitingToFetch;
         std::shared_ptr< CP_Queue<ui> > waitingToConfigure;
 
