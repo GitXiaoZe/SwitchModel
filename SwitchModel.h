@@ -55,7 +55,7 @@ class SwitchModel{
         Packet* getPacket(ul iport_);
         void removePacket(ul iport_);
         void parsePacket(uc* pkt_, int pkt_length_);
-        void sniff();
+        void sniff_socket();
         void insertPkt(uc* pkt, int pkt_length_);
         void processPkt();
         void fetchCongiureFileForJob();

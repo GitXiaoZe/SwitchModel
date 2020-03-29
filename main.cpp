@@ -4,6 +4,7 @@
 #include <linux/types.h>
 #include <linux/netfilter.h>
 #include <libnetfilter_queue/libnetfilter_queue.h>
+#include <pcap.h>
 
 #include <cstdlib>
 #include <thread>
@@ -42,11 +43,9 @@ void process_thread(SwitchModel* swm_){
     swm->processPkt();
 }
 
-void sniff_thread(SwitchModel* swm_){
-    swm_->sniff();
-}
 
-int cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* nfa, void* data){
+//interception (nfqueue)
+int nfq_cb(struct nfq_q_handle* qh, struct nfgenmsg* nfmsg, struct nfq_data* nfa, void* data){
     //printf("call back\n");
     int payload_len;
     unsigned char* payload;
@@ -75,7 +74,7 @@ void start(){
         exit(-1);
     }
 
-    qh = nfq_create_queue(h, QUEUE_NUM, &cb, NULL);
+    qh = nfq_create_queue(h, QUEUE_NUM, &nfq_cb, NULL);
     if(!qh){
         printf("error during nfq_create_queue\n");
         exit(-1);
@@ -96,6 +95,46 @@ void start(){
     nfq_close(h);
 }
 
+//sniffing (pcap)
+
+
+#define DEVICE "eth1"
+#define PKT_LENGTH 65536 
+#define BUFSIZE 4096
+
+
+void pcap_cb(u_char* args, const struct pcap_pkthdr* header, const u_char* packet){
+    uc* pkt = (uc*)(packet + 14);
+    if(header->len > 84){
+        swm->insertPkt(pkt, header->len);
+    }
+}
+
+int pcap_sniff(){
+    char errbuf[BUFSIZE];
+    pcap_t* handle;
+    struct bpf_program fp;
+    bpf_u_int32 mask, net;
+    if(pcap_lookupnet(DEVICE, &net, &mask, errbuf) < 0){
+        printf("pcap lookup error: %s\n", errbuf);
+        exit(-1);
+    }else{
+        struct in_addr netaddr, maskaddr;
+        netaddr.s_addr = net;
+        maskaddr.s_addr = mask;
+        printf("net : %s, mask : %s\n", (char *)inet_ntoa(netaddr), (char*)inet_ntoa(maskaddr));
+    }
+    
+    if( (handle = pcap_open_live(DEVICE, PKT_LENGTH, true, 0, errbuf)) == NULL){
+        printf("Error : %s\n", errbuf);
+        exit(-1);
+    }
+    struct pcap_pkthdr header;
+
+    pcap_loop(handle, -1, pcap_cb, NULL);
+    pcap_close(handle);
+}
+
 
 int main(){
     printf("begin to initial swm\n");
@@ -107,8 +146,6 @@ int main(){
     std::thread subThread_4(configureForJob_thread, swm);
     std::thread subThread_5(fetchConfigureFileForJob_thread, swm);
     std::thread subThread_6(process_thread, swm);
-    std::thread subThread_7(sniff_thread, swm);
-    start();
-
+    pcap_sniff();
     return 0;
 }

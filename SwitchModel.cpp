@@ -62,10 +62,10 @@ void SwitchModel::fetchCongiureFileForJob(){
         waitingToFetch->get(job_index);
         Job* job = (*idx2JobPtr)[job_index];
         snprintf(buf, BUFSIZE, FETCH_COMMAND, job->job_id, job->job_id);
-        //printf("begin to fetch %s in %s\n", job->job_id, buf);
-        system(buf);
-        int res = 0;
-        wait(&res);
+        printf("begin to fetch %s in %s\n", job->job_id, buf);
+        //system(buf);
+        //int res = 0;
+        //wait(&res);
         waitingToConfigure->add(job_index);
     }
 }
@@ -78,11 +78,14 @@ void SwitchModel::fetchCongiureFileForJob(){
 void SwitchModel::configureForJob(){
     char buf[BUFSIZE];
     unsigned int job_index;
+    int map, reduce;
     while(true){
         waitingToConfigure->get(job_index);
         Job* job = (*idx2JobPtr)[job_index];
         snprintf(buf, BUFSIZE, CONF_FILE_PATH, job->job_id);
         printf("begin to conf %s in %s\n", job->job_id, buf);
+        job->setTask(map, reduce, TASKRATIO);
+        /*
         TiXmlDocument* doc = new TiXmlDocument(CONF_FILE_PATH);
         if(!doc->LoadFile()){
             printf("Error msg %s\n", doc->ErrorDesc());
@@ -90,7 +93,6 @@ void SwitchModel::configureForJob(){
         }else{
             TiXmlElement *root = doc->RootElement();
             TiXmlNode *item;
-            int map, reduce;
             for(item = root->FirstChild(); item; item = item->NextSibling()){
                 TiXmlNode* child = item->FirstChild("name");
                 if(child != NULL){
@@ -102,6 +104,7 @@ void SwitchModel::configureForJob(){
             }
             job->setTask(map, reduce, TASKRATIO);
         }
+        */
     }
 }
 
@@ -124,9 +127,10 @@ void SwitchModel::fetchMapTaskResult(){
         Job *job = (*idx2JobPtr)[(*jobId2idx)[job_id]];
         //snprintf(buf, BUFSIZ, FETCH_MAP_RESULT_COMMAND, password, username, host, app_id, task_id, task_id);
         snprintf(buf, BUFSIZE, FETCH_MAP_RESULT_COMMAND, password, username, host, job->job_id, task_id);
-        system(buf);
-        int r = 0;  
-        wait(&r);
+        printf("begin to fetch %s\n", buf);
+        //system(buf);
+        //int r = 0;  
+        //wait(&r);
         waitingToSet->add(p);
     }
 }
@@ -148,22 +152,23 @@ void SwitchModel::setReducerSize(){
         ui idx = (*jobId2idx)[job_id];
         Job *job = (*idx2JobPtr)[idx];
         snprintf(buf, BUFSIZE, MAP_RESULT_FILE_PATH, job->job_id, task_id);
-        FILE* inFile = fopen(buf, "rb");
-        if(inFile == NULL){
-            printf("Error occurs when opening files %s \n", buf);
-            continue;//???
-        }
-        ul data[3];
-        for(int i=0; i < job->reduce; i++){
-            int v = fread(data, sizeof(unsigned long), 3, inFile);
-            assert(v==3);
-            job->mapTask_size[i] += convert(data[1]); 
-        }
-        fclose(inFile);
-        job->hasReceived++;
-        if(job->hasReceived == job->map_ratio){
+        printf("begin to set task : %s\n" ,buf);
+        //FILE* inFile = fopen(buf, "rb");
+        //if(inFile == NULL){
+        //    printf("Error occurs when opening files %s \n", buf);
+        //    continue;//???
+        //}
+        //ul data[3];
+        //for(int i=0; i < job->reduce; i++){
+        //    int v = fread(data, sizeof(unsigned long), 3, inFile);
+        //    assert(v==3);
+        //    job->mapTask_size[i] += convert(data[1]); 
+        //}
+        //fclose(inFile);
+        //job->hasReceived++;
+        //if(job->hasReceived == job->map_ratio){
             waitingToSchedule->add(idx);
-        }
+        //}
     }
 }
 
@@ -196,19 +201,21 @@ void SwitchModel::schedule(){
         }
         std::sort(pairs + 1, pairs + job->reduce + 1, compare);
         snprintf(buf, BUFSIZE, ORDER_FILE_PATH, job->job_id);
-        FILE* outFile = fopen(buf, "w");
-        if(outFile == NULL){
-            printf("Error when opening file when schedule\n");
-            continue;
-        }
-        for(int i=1; i <= job->reduce; i++){
-            fprintf(outFile, "%d ", pairs[i].first);
-        }
-        fclose(outFile);
+        printf("begin to schedule, write results to %s\n", buf);
+        //FILE* outFile = fopen(buf, "w");
+        //if(outFile == NULL){
+        //    printf("Error when opening file when schedule\n");
+        //    continue;
+        //}
+        //for(int i=1; i <= job->reduce; i++){
+        //    fprintf(outFile, "%d ", pairs[i].first);
+        //}
+        //fclose(outFile);
         snprintf(buf, BUFSIZE, SEND_ORDER_COMMAND, password, job->job_id, username, host, job->job_id);
-        system(buf);
-        int res = 0;
-        wait(&res);
+        printf("transfer results : %s\n", buf);
+        //system(buf);
+        //int res = 0;
+        //wait(&res);
     }
 }
 
@@ -237,9 +244,9 @@ int SwitchModel::sendPkt(struct nfq_q_handle* qh_, struct nfq_data* nfa_){
 }
 
 
-#define NICNAME "ens33"
+#define NICNAME "eth1"
 
-void SwitchModel::sniff(){
+void SwitchModel::sniff_socket(){
     int sock;
 
     if( (sock = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_IP))) < 0){
@@ -295,8 +302,10 @@ void SwitchModel::sniff(){
 }
 
 
+
 void SwitchModel::insertPkt(uc* pkt_, int pkt_length_){
     uc* pkt = new uc[pkt_length_];
+    if(pkt == NULL) return;
     std::memcpy(pkt, pkt_, pkt_length_);
     waitingToProcess->add(std::pair<uc*, int>(pkt, pkt_length_));
 }
@@ -416,6 +425,8 @@ void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
             if(create){
                 waitingToFetch->add(idx);
             }
+            job_id_ptr[JOB_ID_LENGTH] = '\0';
+            printf("A client submit a job with job-id = %s\n", job_id_ptr);
             //sendPkt(qh_, nfa_);
             break;
         }
@@ -439,7 +450,6 @@ void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
             uc psh_flag = tcph->flag & 0x08;
             ul iport = (ntohl(iph->src_ip) << 16)  + ntohs(tcph->src_port);
 
-
             bool startTask = false;
             char *task_id_ptr = NULL, *job_id_ptr = NULL;
             if( (task_id_ptr = strmatcher->kmp_matcher(payload, payload_length, (char*)TASK_ID_PREFIX, std::strlen(TASK_ID_PREFIX))) != NULL ){
@@ -451,6 +461,12 @@ void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
                 ui idx = getJobIdx(job_id_ptr, JOB_ID_LENGTH, create);
                 assert(!create);
                 (*idx2JobPtr)[idx]->setHostIP(ntohl(iph->dest_ip));
+
+
+                struct in_addr destip;
+                destip.s_addr = iph->dest_ip;
+                job_id_ptr[JOB_ID_LENGTH] = '\0';
+                printf("%s begin to start AM in %s\n", job_id_ptr, (char*)inet_ntoa(destip));
             }else{ // start Task ,we need to keep the whole packet
                 if(psh_flag){
                     char* yarnchild_flag = strmatcher->kmp_matcher(payload, payload_length, (char*)YARNCHILD, std::strlen(YARNCHILD));
@@ -479,6 +495,11 @@ void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
                         }else taskset = ite->second;
                         taskset->insert(std::pair<ui, ui>(taskId, ntohl(iph->dest_ip)));
                     }
+                    
+                    struct in_addr destip;
+                    destip.s_addr = iph->dest_ip;
+                    job_id_ptr[JOB_ID_LENGTH] = '\0';
+                    printf("%s begin to start a Task %s in %s\n", job_id_ptr, task_id_ptr, (char*)inet_ntoa(destip));
                 }else{
                     Packet* pkt = getPacket(iport);
                     pkt->addPayload(payload, payload_length);
@@ -514,6 +535,11 @@ void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
                     ul jobId = std::atol(job_id_ptr) * 10000 + (ul)std::atol(job_id_ptr + first);
                     ui taskId = std::atoi(job_id_ptr + second) * 1000000 + (job_id_ptr[third] - '0');
                     waitingMapResult->add(std::pair<ul, ui>(jobId, taskId));
+
+                    struct in_addr destip;
+                    destip.s_addr = iph->dest_ip;
+                    job_id_ptr[JOB_ID_LENGTH] = '\0';
+                    printf("%s finish a Task %s\n", job_id_ptr, task_id_ptr);
                 }
             }
             //sendPkt(qh_, nfa_);
@@ -556,6 +582,12 @@ void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
                         }else taskset = ite->second;
                         taskset->insert(std::pair<ui, ui>(taskId, ntohl(iph->dest_ip)));
                     }
+
+                    struct in_addr destip;
+                    destip.s_addr = iph->dest_ip;
+                    job_id_ptr[JOB_ID_LENGTH] = '\0';
+                    printf("%s begin to start a Task %s in %s\n", job_id_ptr, task_id_ptr, (char*)inet_ntoa(destip));
+
                     
                     removePacket(iport);
                     delete pkt;
@@ -566,6 +598,7 @@ void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
             //sendPkt(qh_, nfa_);
         }
     }
+    delete [] pkt_;
 }
 
 void SwitchModel::processPkt(){
