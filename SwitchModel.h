@@ -40,11 +40,15 @@ class SwitchModel{
             idx2JobPtr = std::make_shared< std::map<ui, Job*> >();
             jobId2idx = std::make_shared< std::map<ul, ui> >();
             job2TaskSet =  std::make_shared< std::map<ul, std::map<ui, ui>* > >();
+
+            waitingToProcess = 
+                std::make_shared< CP_Queue< std::pair<uc*, int>* > >();
             waitingToFetch = std::make_shared< CP_Queue<ui> >();
             waitingToConfigure = std::make_shared< CP_Queue<ui> >();
             waitingMapResult = 
-                std::make_shared< CP_Queue< std::pair<ul, ui> > >();
-            waitingToSet = std::make_shared< CP_Queue< std::pair<ul, ui> > >();
+                std::make_shared< CP_Queue< std::pair<ul, ui>* > >();
+            waitingToSet = 
+                std::make_shared< CP_Queue< std::pair<ul, ui>* > >();
             waitingToSchedule = std::make_shared< CP_Queue<ui> >();
             strmatcher = std::make_shared<StrMatcher>();
         }
@@ -77,12 +81,12 @@ class SwitchModel{
         std::shared_ptr< std::map<ul, ui> > jobId2idx;
         std::shared_ptr< std::map<ul, std::map<ui, ui>* > > job2TaskSet;
 
-        std::shared_ptr< CP_Queue< std::pair<uc*, int>> > waitingToProcess;
+        std::shared_ptr< CP_Queue< std::pair<uc*, int>* > > waitingToProcess;
         std::shared_ptr< CP_Queue<ui> > waitingToFetch;
         std::shared_ptr< CP_Queue<ui> > waitingToConfigure;
 
-        std::shared_ptr< CP_Queue< std::pair<ul, ui> > > waitingMapResult;
-        std::shared_ptr< CP_Queue< std::pair<ul, ui> > > waitingToSet;
+        std::shared_ptr< CP_Queue< std::pair<ul, ui>* > > waitingMapResult;
+        std::shared_ptr< CP_Queue< std::pair<ul, ui>* > > waitingToSet;
         std::shared_ptr< CP_Queue<ui> > waitingToSchedule;
 
         std::shared_ptr<StrMatcher> strmatcher;

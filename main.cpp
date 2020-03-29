@@ -98,7 +98,7 @@ void start(){
 //sniffing (pcap)
 
 
-#define DEVICE "eth1"
+#define DEVICE "ens33"
 #define PKT_LENGTH 65536 
 #define BUFSIZE 4096
 
@@ -106,7 +106,8 @@ void start(){
 void pcap_cb(u_char* args, const struct pcap_pkthdr* header, const u_char* packet){
     uc* pkt = (uc*)(packet + 14);
     if(header->len > 84){
-        swm->insertPkt(pkt, header->len);
+        //printf("insert\n");
+        swm->insertPkt(pkt, header->len - 14);
     }
 }
 
@@ -124,7 +125,6 @@ int pcap_sniff(){
         maskaddr.s_addr = mask;
         printf("net : %s, mask : %s\n", (char *)inet_ntoa(netaddr), (char*)inet_ntoa(maskaddr));
     }
-    
     if( (handle = pcap_open_live(DEVICE, PKT_LENGTH, true, 0, errbuf)) == NULL){
         printf("Error : %s\n", errbuf);
         exit(-1);
@@ -135,16 +135,27 @@ int pcap_sniff(){
 }
 
 
+
 int main(){
     printf("begin to initial swm\n");
     swm = new SwitchModel();
-    printf("begin to start()\n");
-    std::thread subThread_1(schedule_thread, swm);
-    std::thread subThread_2(setReducerSize_thread, swm);
-    std::thread subThread_3(fetchMapTaskResult_thread, swm);
-    std::thread subThread_4(configureForJob_thread, swm);
-    std::thread subThread_5(fetchConfigureFileForJob_thread, swm);
-    std::thread subThread_6(process_thread, swm);
-    pcap_sniff();
+    if(swm == NULL){
+        printf("swm is null\n");
+        exit(-1);
+    }
+    if(1){
+        printf("begin to start()\n");
+        sleep(1);
+        std::thread subThread_1(schedule_thread, swm);
+        std::thread subThread_2(setReducerSize_thread, swm);
+        std::thread subThread_3(fetchMapTaskResult_thread, swm);
+        std::thread subThread_4(configureForJob_thread, swm);
+        std::thread subThread_5(fetchConfigureFileForJob_thread, swm);
+        std::thread subThread_6(process_thread, swm);
+        sleep(1);
+        pcap_sniff();
+    }else{
+        swm->processPkt();
+    }
     return 0;
 }

@@ -122,11 +122,11 @@ void SwitchModel::fetchMapTaskResult(){
     char* password = "..xiao";
     char* username = "hzh";
     char* host="192.168.217.145";
-    std::pair<ul, ui> p;
+    std::pair<ul, ui> *p;
     while(true){
         waitingMapResult->get(p);
-        ul job_id = p.first;
-        ui task_id = p.second;
+        ul job_id = p->first;
+        ui task_id = p->second;
         Job *job = (*idx2JobPtr)[(*jobId2idx)[job_id]];
         //snprintf(buf, BUFSIZ, FETCH_MAP_RESULT_COMMAND, password, username, host, app_id, task_id, task_id);
         snprintf(buf, BUFSIZE, FETCH_MAP_RESULT_COMMAND, password, username, host, job->job_id, task_id);
@@ -148,11 +148,11 @@ unsigned long convert(unsigned long d){
 void SwitchModel::setReducerSize(){
     printf("begin to set reducer size for job\n");
     char buf[BUFSIZE];
-    std::pair<ul, ui> p;
+    std::pair<ul, ui> *p;
     while(true){
         waitingToSet->get(p);
-        ul job_id = p.first;
-        ul task_id = p.second;
+        ul job_id = p->first;
+        ul task_id = p->second;
         ui idx = (*jobId2idx)[job_id];
         Job *job = (*idx2JobPtr)[idx];
         snprintf(buf, BUFSIZE, MAP_RESULT_FILE_PATH, job->job_id, task_id);
@@ -173,6 +173,7 @@ void SwitchModel::setReducerSize(){
         //if(job->hasReceived == job->map_ratio){
             waitingToSchedule->add(idx);
         //}
+        delete p;
     }
 }
 
@@ -200,11 +201,11 @@ void SwitchModel::schedule(){
     while(true){
         waitingToSchedule->get(idx);
         Job* job = (*idx2JobPtr)[idx];
-        for(int i=1; i <= job->reduce; i++){
-            pairs[i].first = i;
-            pairs[i].second = (job->mapTask_size)[i];
-        }
-        std::sort(pairs + 1, pairs + job->reduce + 1, compare);
+        //for(int i=1; i <= job->reduce; i++){
+        //    pairs[i].first = i;
+        //    pairs[i].second = (job->mapTask_size)[i];
+        //}
+        //std::sort(pairs + 1, pairs + job->reduce + 1, compare);
         snprintf(buf, BUFSIZE, ORDER_FILE_PATH, job->job_id);
         printf("begin to schedule, write results to %s\n", buf);
         //FILE* outFile = fopen(buf, "w");
@@ -301,7 +302,7 @@ void SwitchModel::sniff_socket(){
         pkt = new uc[cnt - 14 + 1];
         assert(pkt != NULL);
         std::memcpy(pkt, buf + 14, cnt - 14);
-        waitingToProcess->add(std::pair<uc*, int>(pkt, cnt-14));
+        waitingToProcess->add(new std::pair<uc*, int>(pkt, cnt-14));
     }
     close(sock);
 }
@@ -312,7 +313,7 @@ void SwitchModel::insertPkt(uc* pkt_, int pkt_length_){
     uc* pkt = new uc[pkt_length_];
     if(pkt == NULL) return;
     std::memcpy(pkt, pkt_, pkt_length_);
-    waitingToProcess->add(std::pair<uc*, int>(pkt, pkt_length_));
+    waitingToProcess->add(new std::pair<uc*, int>(pkt, pkt_length_));
 }
 
 #define RPC_UNKNOWN_TYPE 0
@@ -391,7 +392,7 @@ void SwitchModel::insertPkt(uc* pkt_, int pkt_length_){
 */
 
 void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
-
+    printf("pkt process\n");
     IPHeader* iph = (IPHeader*)pkt_;
     if(iph->protocol != TCP){
         //sendPkt(qh_, nfa_);
@@ -539,7 +540,7 @@ void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
                     third = ++i;
                     ul jobId = std::atol(job_id_ptr) * 10000 + (ul)std::atol(job_id_ptr + first);
                     ui taskId = std::atoi(job_id_ptr + second) * 1000000 + (job_id_ptr[third] - '0');
-                    waitingMapResult->add(std::pair<ul, ui>(jobId, taskId));
+                    waitingMapResult->add(new std::pair<ul, ui>(jobId, taskId));
 
                     struct in_addr destip;
                     destip.s_addr = iph->dest_ip;
@@ -607,9 +608,10 @@ void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
 }
 
 void SwitchModel::processPkt(){
-    std::pair<uc*, int> p;
+    std::pair<uc*, int>* p;
     while(true){
         waitingToProcess->get(p);
-        parsePacket(p.first, p.second);
+        parsePacket(p->first, p->second);
+        delete p;
     }
 }
