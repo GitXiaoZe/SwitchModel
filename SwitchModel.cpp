@@ -423,7 +423,12 @@ void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
     else if( strmatcher->kmp_matcher(payload, payload_length, (char*)RPC_DONE, std::strlen(RPC_DONE)) != NULL  ) msg_type = RPC_DONE_TYPE;
     else msg_type = RPC_UNKNOWN_TYPE;
     if(msg_type != 0){
-        printf("msg type = %d\n", msg_type);
+        printf("msg type = %d len = %d\n", msg_type, pkt_length_);
+        for(int i=0; i < std::min(pkt_length_, 1000); i++){
+            if(pkt_[i] > 0 && pkt_[i] < 128) printf("%c", pkt_[i]);
+            else printf(".");
+        }
+        printf("\n");
     }
     switch(msg_type){
         case RPC_SUBMIT_TYPE : {
