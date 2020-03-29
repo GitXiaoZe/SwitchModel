@@ -161,6 +161,17 @@ int pcap_sniff(){
         printf("Error : %s\n", errbuf);
         exit(-1);
     }
+
+    char* filterExp = "greater 100";
+    if(pcap_compile(handle, &fp, filter_exp, 0, net) < 0){
+        printf("Error pcap compile\n");
+        exit(-1);
+    }
+    if(pcap_setfilter(handle, &fp) < 0){
+        printf("Error set filter\n");
+        exit(-1);
+    }
+
     printf("begin to sniff\n");
     pcap_loop(handle, -1, pcap_cb, NULL);
     pcap_close(handle);
