@@ -103,15 +103,43 @@ void start(){
 #define BUFSIZE 4096
 
 
+
+void outputH(IPHeader* iph_, TCPHeader* tcph_){
+    struct in_addr srcaddr, destaddr;
+    srcaddr.s_addr = iph_->src_ip;
+    destaddr.s_addr = iph_->dest_ip;
+    printf("%s(%d) --> %s(%d)\n", (char *)inet_ntoa(srcaddr), ntohs(tcph_->src_port), 
+        (char*)inet_ntoa(destaddr), ntohs(tcph_->dest_port));
+}
+
+
 void pcap_cb(u_char* args, const struct pcap_pkthdr* header, const u_char* packet){
-    uc* pkt = (uc*)(packet + 14);
+    uc* pkt_ = (uc*)(packet + 14);
     if(header->len > 84){
-        //printf("insert\n");
-        struct in_addr srcaddr, destaddr;
-        srcaddr.s_addr = 0;
-        destaddr.s_addr = 0;
-        printf("%s --> %s\n", (char *)inet_ntoa(srcaddr), (char*)inet_ntoa(destaddr));
-        swm->insertPkt(pkt, header->len - 14);
+        //swm->insertPkt(pkt, header->len - 14);
+        int pkt_length_ = header->len - 14;
+        IPHeader* iph = (IPHeader*)pkt_;
+        if(iph->protocol != 17){
+            return;
+        }
+        us ip_header_length = ((us)(iph->ver_ihl & 0xF)) << 2;
+        us ip_total_length = ntohs(iph->total_len);
+
+        TCPHeader * tcph = (TCPHeader*)(pkt_ + ip_header_length);
+        us tcp_header_length = ((tcph->offset >> 4) & 0x0F) << 2;
+        if(tcp_header_length + ip_header_length == ip_total_length){ // this tcp has no payload
+            return;
+        }
+
+        us payload_length = ip_total_length - ip_header_length - tcp_header_length;
+        char* payload = (char*)(tcph + tcp_header_length);
+        outputH(iph, tcph);
+        printf("pkt len = %d\n", pkt_length_);
+        for(int i=0; i < payload_length; i++){
+            if(payload[i] > 0 && payload[i] < 128) printf("%c", payload[i]);
+            else printf(".");
+        }
+        printf("\n\n");
     }
 }
 

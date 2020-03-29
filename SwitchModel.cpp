@@ -395,8 +395,8 @@ void output(IPHeader* iph_, TCPHeader* tcph_){
     struct in_addr srcaddr, destaddr;
     srcaddr.s_addr = iph_->src_ip;
     destaddr.s_addr = iph_->dest_ip;
-    printf("%s(%d) --> %s(%d)\n", (char *)inet_ntoa(srcaddr), (char*)inet_ntoa(destaddr),
-                            ntohs(tcph_->src_port), ntohs(tcph_->dest_port));
+    printf("%s(%d) --> %s(%d)\n", (char *)inet_ntoa(srcaddr), ntohs(tcph_->src_port), 
+        (char*)inet_ntoa(destaddr), ntohs(tcph_->dest_port));
 }
 
 void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
@@ -411,7 +411,6 @@ void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
 
     TCPHeader * tcph = (TCPHeader*)(pkt_ + ip_header_length);
     us tcp_header_length = ((tcph->offset >> 4) & 0x0F) << 2;
-    output(iph, tcph);
     if(tcp_header_length + ip_header_length == ip_total_length){ // this tcp has no payload
         //sendPkt(qh_, nfa_);
         delete [] pkt_;
@@ -432,6 +431,7 @@ void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
     else if( strmatcher->kmp_matcher(payload, payload_length, (char*)RPC_DONE, std::strlen(RPC_DONE)+5 ) != NULL  ) msg_type = RPC_DONE_TYPE;
     else msg_type = RPC_UNKNOWN_TYPE;
     if(msg_type ==1 || msg_type == 4 || msg_type == 6 || msg_type == 7 || msg_type == 8){
+        output(iph, tcph);
         printf("msg type = %d len = %d\n", msg_type, pkt_length_);
         for(int i=0; i < payload_length; i++){
             if(payload[i] > 0 && payload[i] < 128) printf("%c", payload[i]);
