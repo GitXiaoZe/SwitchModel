@@ -420,15 +420,15 @@ void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
     else if( strmatcher->kmp_matcher(payload, payload_length, (char*)RPC_GETAPPLICATIONREPORT, std::strlen(RPC_GETAPPLICATIONREPORT)) != NULL ) msg_type = RPC_GETAPPLICATIONREPORT_TYPE;
     else if( strmatcher->kmp_matcher(payload, payload_length, (char*)RPC_STARTCONTAINERS, std::strlen(RPC_STARTCONTAINERS)) != NULL ) msg_type = RPC_STARTCONTAINERS_TYPE;
     else if( strmatcher->kmp_matcher(payload, payload_length, (char*)RPC_REGISTERAPPLICATIONMASTER, std::strlen(RPC_REGISTERAPPLICATIONMASTER)) != NULL  ) msg_type = RPC_REGISTERAPPLICATIONMASTER_TYPE;
-    else if( strmatcher->kmp_matcher(payload, payload_length, (char*)RPC_DONE, std::strlen(RPC_DONE)) != NULL  ) msg_type = RPC_DONE_TYPE;
+    else if( strmatcher->kmp_matcher(payload, payload_length, (char*)RPC_DONE, std::strlen(RPC_DONE)+5 ) != NULL  ) msg_type = RPC_DONE_TYPE;
     else msg_type = RPC_UNKNOWN_TYPE;
     if(msg_type ==1 || msg_type == 4 || msg_type == 6 || msg_type == 7 || msg_type == 8){
         printf("msg type = %d len = %d\n", msg_type, pkt_length_);
-        for(int i=0; i < std::min(pkt_length_, 1000); i++){
-            if(pkt_[i] > 0 && pkt_[i] < 128) printf("%c", pkt_[i]);
+        for(int i=0; i < payload_length; i++){
+            if(payload[i] > 0 && payload[i] < 128) printf("%c", payload[i]);
             else printf(".");
         }
-        printf("\n");
+        printf("\n\n");
     }
     switch(msg_type){
         case RPC_SUBMIT_TYPE : {
