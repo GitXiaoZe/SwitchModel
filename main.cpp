@@ -129,8 +129,7 @@ int pcap_sniff(){
         printf("Error : %s\n", errbuf);
         exit(-1);
     }
-    struct pcap_pkthdr header;
-
+    printf("begin to sniff\n");
     pcap_loop(handle, -1, pcap_cb, NULL);
     pcap_close(handle);
 }

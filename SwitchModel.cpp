@@ -56,6 +56,7 @@ ui SwitchModel::getJobIdx(char* job_id_, ui job_id_length_, bool& create){
 #define FETCH_COMMAND "sudo -u hzh /home/hzh/Documents/hadoop-3.1.2/bin/hdfs dfs -get /tmp/hadoop-yarn/staging/hzh/.staging/%s/job.xml /home/hzh/Documents/NFQueue/conf/%s_job.xml"
 
 void SwitchModel::fetchCongiureFileForJob(){
+    printf("begin to fetch configuration file for job\n");
     char buf[BUFSIZE];
     ui job_index;
     while(true){
@@ -76,6 +77,7 @@ void SwitchModel::fetchCongiureFileForJob(){
 #define TASKRATIO 0.6
 
 void SwitchModel::configureForJob(){
+    printf("begin to configure for job\n");
     char buf[BUFSIZE];
     unsigned int job_index;
     int map, reduce;
@@ -115,6 +117,7 @@ void SwitchModel::configureForJob(){
 #define LEN 3
 
 void SwitchModel::fetchMapTaskResult(){
+    printf("begin to fetch map task result for job\n");
     char buf[BUFSIZE];
     char* password = "..xiao";
     char* username = "hzh";
@@ -143,6 +146,7 @@ unsigned long convert(unsigned long d){
 }
 
 void SwitchModel::setReducerSize(){
+    printf("begin to set reducer size for job\n");
     char buf[BUFSIZE];
     std::pair<ul, ui> p;
     while(true){
@@ -186,6 +190,7 @@ bool compare(const std::pair<ui, ul> &p1, const std::pair<ui, ul> &p2){
 }
 
 void SwitchModel::schedule(){
+    printf("begin to schedule for job\n");
     char buf[BUFSIZE];
     std::pair<ui, ul> pairs[MAX_REDUCER];
     ui idx;
