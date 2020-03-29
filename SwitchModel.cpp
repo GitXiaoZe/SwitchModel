@@ -391,6 +391,14 @@ void SwitchModel::insertPkt(uc* pkt_, int pkt_length_){
     }
 */
 
+void output(IPHeader* iph_, TCPHeader* tcph_){
+    struct in_addr srcaddr, destaddr;
+    srcaddr.s_addr = iph_->src_ip;
+    destaddr.s_addr = iph_->dest_ip;
+    printf("%s(%d) --> %s(%d)\n", (char *)inet_ntoa(srcaddr), (char*)inet_ntoa(destaddr),
+                            ntohs(tcph_->src_port), ntohs(tcph_->dest_port));
+}
+
 void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
     IPHeader* iph = (IPHeader*)pkt_;
     if(iph->protocol != TCP){
@@ -400,9 +408,10 @@ void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
     }
     us ip_header_length = ((us)(iph->ver_ihl & 0xF)) << 2;
     us ip_total_length = ntohs(iph->total_len);
-    
+
     TCPHeader * tcph = (TCPHeader*)(pkt_ + ip_header_length);
     us tcp_header_length = ((tcph->offset >> 4) & 0x0F) << 2;
+    output(iph, tcph);
     if(tcp_header_length + ip_header_length == ip_total_length){ // this tcp has no payload
         //sendPkt(qh_, nfa_);
         delete [] pkt_;

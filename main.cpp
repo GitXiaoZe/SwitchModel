@@ -107,6 +107,10 @@ void pcap_cb(u_char* args, const struct pcap_pkthdr* header, const u_char* packe
     uc* pkt = (uc*)(packet + 14);
     if(header->len > 84){
         //printf("insert\n");
+        struct in_addr srcaddr, destaddr;
+        srcaddr.s_addr = 0;
+        destaddr.s_addr = 0;
+        printf("%s --> %s\n", (char *)inet_ntoa(srcaddr), (char*)inet_ntoa(destaddr));
         swm->insertPkt(pkt, header->len - 14);
     }
 }
