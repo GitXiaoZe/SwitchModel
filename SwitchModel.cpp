@@ -392,7 +392,6 @@ void SwitchModel::insertPkt(uc* pkt_, int pkt_length_){
 */
 
 void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
-    printf("pkt process\n");
     IPHeader* iph = (IPHeader*)pkt_;
     if(iph->protocol != TCP){
         //sendPkt(qh_, nfa_);

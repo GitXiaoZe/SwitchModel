@@ -98,7 +98,7 @@ void start(){
 //sniffing (pcap)
 
 
-#define DEVICE "ens33"
+#define DEVICE "eth1"
 #define PKT_LENGTH 65536 
 #define BUFSIZE 4096
 
