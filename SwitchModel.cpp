@@ -340,7 +340,7 @@ void SwitchModel::insertPkt(uc* pkt_, int pkt_length_){
 #define RPC_REGISTERAPPLICATIONMASTER "registerApplicationMaster"
 
 #define RPC_DONE_TYPE 8
-#define RPC_DONE "done"
+#define RPC_DONE "org.apache.hadoop.mapred.TaskUmbilicalProtocol\x00\x04done"
 
 #define JOB_ID_PREFIX "job_"
 #define TASK_ID_PREFIX "attempt_"
@@ -395,6 +395,7 @@ void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
     IPHeader* iph = (IPHeader*)pkt_;
     if(iph->protocol != TCP){
         //sendPkt(qh_, nfa_);
+        delete [] pkt_;
         return;
     }
     us ip_header_length = ((us)(iph->ver_ihl & 0xF)) << 2;
@@ -404,13 +405,14 @@ void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
     us tcp_header_length = ((tcph->offset >> 4) & 0x0F) << 2;
     if(tcp_header_length + ip_header_length == ip_total_length){ // this tcp has no payload
         //sendPkt(qh_, nfa_);
+        delete [] pkt_;
         return;
     }
 
     us payload_length = ip_total_length - ip_header_length - tcp_header_length;
     char* payload = (char*)(tcph + tcp_header_length);
 
-    int msg_type;
+    int msg_type = 0;
     if( strmatcher->kmp_matcher(payload, payload_length, (char*)RPC_SUBMIT, std::strlen(RPC_SUBMIT)) != NULL ) msg_type = RPC_SUBMIT_TYPE;
     else if( strmatcher->kmp_matcher(payload, payload_length, (char*)RPC_ALLOCATE, std::strlen(RPC_ALLOCATE)) != NULL ) msg_type = RPC_ALLOCATE_TYPE;
     else if( strmatcher->kmp_matcher(payload, payload_length, (char*)RPC_FINISH, std::strlen(RPC_FINISH)) != NULL ) msg_type = RPC_FINISH_TYPE;
@@ -418,9 +420,11 @@ void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
     else if( strmatcher->kmp_matcher(payload, payload_length, (char*)RPC_GETAPPLICATIONREPORT, std::strlen(RPC_GETAPPLICATIONREPORT)) != NULL ) msg_type = RPC_GETAPPLICATIONREPORT_TYPE;
     else if( strmatcher->kmp_matcher(payload, payload_length, (char*)RPC_STARTCONTAINERS, std::strlen(RPC_STARTCONTAINERS)) != NULL ) msg_type = RPC_STARTCONTAINERS_TYPE;
     else if( strmatcher->kmp_matcher(payload, payload_length, (char*)RPC_REGISTERAPPLICATIONMASTER, std::strlen(RPC_REGISTERAPPLICATIONMASTER)) != NULL  ) msg_type = RPC_REGISTERAPPLICATIONMASTER_TYPE;
-    else if(strmatcher->kmp_matcher(payload, payload_length, (char*)RPC_DONE, std::strlen(RPC_DONE)) != NULL  ) msg_type = RPC_DONE_TYPE;
+    else if( strmatcher->kmp_matcher(payload, payload_length, (char*)RPC_DONE, std::strlen(RPC_DONE)) != NULL  ) msg_type = RPC_DONE_TYPE;
     else msg_type = RPC_UNKNOWN_TYPE;
-
+    if(msg_type != 0){
+        printf("msg type = %d\n", msg_type);
+    }
     switch(msg_type){
         case RPC_SUBMIT_TYPE : {
             char* job_id_ptr = strmatcher->kmp_matcher(payload, payload_length, (char*)JOB_ID_PREFIX, strlen(JOB_ID_PREFIX));
