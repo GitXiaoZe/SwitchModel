@@ -623,7 +623,6 @@ void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
         }
     }
     delete [] pkt_;
-    printf("\n-------------------------\n");
 }
 
 void SwitchModel::processPkt(){
