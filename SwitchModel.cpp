@@ -42,13 +42,10 @@ ui SwitchModel::getJobIdx(char* job_id_, ui job_id_length_, bool& create){
  Packet* SwitchModel::getPacket(ul iport_){
     std::map<ul, Packet*>::iterator ite = iport2Packet->find(iport_);
     Packet* pkt = NULL;
-    printf("asdasdasd\n");
     if(ite == iport2Packet->end()){
-        printf("asdasdasdasdasd1231\n");
         pkt = new Packet();
         iport2Packet->insert(std::pair<ul, Packet*>(iport_, pkt));
     }else pkt = ite->second;
-    printf("asdasdasdasasd\n");
     return pkt;
  }
 
@@ -56,7 +53,7 @@ ui SwitchModel::getJobIdx(char* job_id_, ui job_id_length_, bool& create){
     iport2Packet->erase(iport_);
  }
 
-#define FETCH_COMMAND "sudo -u hzh /home/hzh/Documents/hadoop-3.1.2/bin/hdfs dfs -get /tmp/hadoop-yarn/staging/hzh/.staging/%s/job.xml /home/hzh/Documents/NFQueue/conf/%s_job.xml"
+#define FETCH_COMMAND "sudo -u hzh /home/tian/Ho/hadoop-3.1.1-src/hadoop-dist/target/hadoop-3.1.1/bin/hdfs dfs -get /tmp/hadoop-yarn/staging/tian/.staging/%s/job.xml /home/tian/Ho/SwitchModel/tmpfile/conf/%s_job.xml"
 
 void SwitchModel::fetchCongiureFileForJob(){
     printf("begin to fetch configuration file for job\n");
@@ -74,7 +71,7 @@ void SwitchModel::fetchCongiureFileForJob(){
     }
 }
 
-#define CONF_FILE_PATH "/home/hzh/Documents/NFQueue/conf/%s_job.xml"
+#define CONF_FILE_PATH "/home/tian/Ho/SwitchModel/tmpfile/conf/%s_job.xml"
 #define CONF_MAPS "mapreduce.job.maps"
 #define CONF_REDUCES "mapreduce.job.reduces"
 #define TASKRATIO 0.6
@@ -115,15 +112,14 @@ void SwitchModel::configureForJob(){
 
 
 //%s: password; %s: username;  %s: host;  %s:app id;  %s:task id;  %s:task_id;
-//#define FETCH_MAP_RESULT_COMMAND "sshpass -p %s scp %s@%s:/home/tian/Ho/hadoop-3.1.1-src/hadoop-dist/target/hadoop-3.1.1/tmp/nm-local-dir/tian/appcache/%s/output/%s/file.out.index /home/hzh/Documents/NFQueue/conf/%s.file.index.out"
-#define FETCH_MAP_RESULT_COMMAND "sshpass -p %s scp %s@%s:/home/hzh/Documents/file.out.index /home/hzh/Documents/NFQueue/conf/%s_%06u_%u.file.out.index"
+#define FETCH_MAP_RESULT_COMMAND "sshpass -p %s scp %s@%s:/home/tian/Ho/hadoop-3.1.1-src/hadoop-dist/target/hadoop-3.1.1/tmp/nm-local-dir/tian/appcache/application_%s/output/attempt_%s_m_%06u_%u/file.out.index /home/tian/Ho/SwitchModel/tmpfile/map/%s_%06u_%u.file.out.index"
 #define LEN 3
 
 void SwitchModel::fetchMapTaskResult(){
     printf("begin to fetch map task result for job\n");
     char buf[BUFSIZE];
-    char* password = "..xiao";
-    char* username = "hzh";
+    char* password = "NasaA108";
+    char* username = "tian";
     char* host="192.168.217.145";
     std::pair<ul, ui> *p;
     while(true){
@@ -131,8 +127,7 @@ void SwitchModel::fetchMapTaskResult(){
         ul job_id = p->first;
         ui task_id = p->second;
         Job *job = (*idx2JobPtr)[(*jobId2idx)[job_id]];
-        //snprintf(buf, BUFSIZ, FETCH_MAP_RESULT_COMMAND, password, username, host, app_id, task_id, task_id);
-        snprintf(buf, BUFSIZE, FETCH_MAP_RESULT_COMMAND, password, username, host, job->job_id, task_id/10, task_id % 10);
+        snprintf(buf, BUFSIZE, FETCH_MAP_RESULT_COMMAND, password, username, host, job->job_id + 4, job->job_id + 4, task_id / 10, task_id % 10, job->job_id, task_id / 10, task_id % 10);
         printf("begin to fetch %s\n", buf);
         //system(buf);
         //int r = 0;  
@@ -141,7 +136,7 @@ void SwitchModel::fetchMapTaskResult(){
     }
 }
 
-#define MAP_RESULT_FILE_PATH "/home/hzh/Documents/NFQueue/conf/%s_%06u.file.out.index"
+#define MAP_RESULT_FILE_PATH "/home/tian/Ho/SwitchModel/tmpfile/map/%s_%06u_%u.file.out.index"
 unsigned long convert(unsigned long d){
     unsigned char *str = (unsigned char*)&d;
     return ((unsigned long)str[0] << 56) + ((unsigned long)str[1] << 48) + ((unsigned long)str[2] << 40) + ((unsigned long)str[3] << 32) 
@@ -155,10 +150,10 @@ void SwitchModel::setReducerSize(){
     while(true){
         waitingToSet->get(p);
         ul job_id = p->first;
-        ul task_id = p->second;
+        ui task_id = p->second;
         ui idx = (*jobId2idx)[job_id];
         Job *job = (*idx2JobPtr)[idx];
-        snprintf(buf, BUFSIZE, MAP_RESULT_FILE_PATH, job->job_id, task_id);
+        snprintf(buf, BUFSIZE, MAP_RESULT_FILE_PATH, job->job_id, task_id / 10, task_id % 10);
         printf("begin to set task : %s\n" ,buf);
         //FILE* inFile = fopen(buf, "rb");
         //if(inFile == NULL){
@@ -182,11 +177,11 @@ void SwitchModel::setReducerSize(){
 
 
 #define MAX_REDUCER 100
-#define ORDER_FILE_PATH "/home/hzh/Documents/NFQueue/conf/%s.file.order"
+#define ORDER_FILE_PATH "/home/tian/Ho/SwitchModel/tmpfile/map/%s.file.order"
 
 //%s: password; %s: username;  %s: host;  %s:app id;  %s:task id;  %s:task_id;
 //#define FETCH_MAP_RESULT_COMMAND "sshpass -p %s scp %s@%s:/home/tian/Ho/hadoop-3.1.1-src/hadoop-dist/target/hadoop-3.1.1/tmp/nm-local-dir/tian/appcache/%s/output/%s/file.out.index /home/hzh/Documents/NFQueue/conf/%s.file.index.out"
-#define SEND_ORDER_COMMAND "sshpass -p %s scp /home/hzh/Documents/NFQueue/conf/%s.file.order %s@%s:/home/hzh/Documents/%s.file.order"
+#define SEND_ORDER_COMMAND "sshpass -p %s scp /home/tian/Ho/SwitchModel/tmpfile/map/%s.file.order %s@%s:/home/tian/Ho/%s.file.order"
 
 
 bool compare(const std::pair<ui, ul> &p1, const std::pair<ui, ul> &p2){
@@ -344,7 +339,7 @@ void SwitchModel::insertPkt(uc* pkt_, int pkt_length_){
 
 #define RPC_DONE_TYPE 8
 #define RPC_DONE "\x04""done"
-//org.apache.hadoop.mapred.TaskUmbilicalProtocol\x00\x04
+
 #define JOB_ID_PREFIX "job_"
 #define TASK_ID_PREFIX "attempt_"
 #define MAPFLAG "MAP"
@@ -436,7 +431,7 @@ void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
     else if( strmatcher->kmp_matcher(payload, payload_length, (char*)RPC_DONE, std::strlen(RPC_DONE)) != NULL  ) msg_type = RPC_DONE_TYPE;
     else msg_type = RPC_UNKNOWN_TYPE;
 
-    if(msg_type ==1 || msg_type == 4 || msg_type == 6 || msg_type == 7 || msg_type == 8){
+    if(msg_type ==1 ||  msg_type == 6 || msg_type == 7 || msg_type == 8){
         printf("msg type = %d\n", msg_type);
     }
     switch(msg_type){
