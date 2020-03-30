@@ -42,10 +42,13 @@ ui SwitchModel::getJobIdx(char* job_id_, ui job_id_length_, bool& create){
  Packet* SwitchModel::getPacket(ul iport_){
     std::map<ul, Packet*>::iterator ite = iport2Packet->find(iport_);
     Packet* pkt = NULL;
+    printf("asdasdasd\n");
     if(ite == iport2Packet->end()){
+        printf("asdasdasdasdasd1231\n");
         pkt = new Packet();
-        iport2Packet->insert(std::pair<ul, Packet*>(iport_, new Packet()));
+        iport2Packet->insert(std::pair<ul, Packet*>(iport_, pkt));
     }else pkt = ite->second;
+    printf("asdasdasdasasd\n");
     return pkt;
  }
 
@@ -113,7 +116,7 @@ void SwitchModel::configureForJob(){
 
 //%s: password; %s: username;  %s: host;  %s:app id;  %s:task id;  %s:task_id;
 //#define FETCH_MAP_RESULT_COMMAND "sshpass -p %s scp %s@%s:/home/tian/Ho/hadoop-3.1.1-src/hadoop-dist/target/hadoop-3.1.1/tmp/nm-local-dir/tian/appcache/%s/output/%s/file.out.index /home/hzh/Documents/NFQueue/conf/%s.file.index.out"
-#define FETCH_MAP_RESULT_COMMAND "sshpass -p %s scp %s@%s:/home/hzh/Documents/file.out.index /home/hzh/Documents/NFQueue/conf/%s_%06u.file.out.index"
+#define FETCH_MAP_RESULT_COMMAND "sshpass -p %s scp %s@%s:/home/hzh/Documents/file.out.index /home/hzh/Documents/NFQueue/conf/%s_%06u_%u.file.out.index"
 #define LEN 3
 
 void SwitchModel::fetchMapTaskResult(){
@@ -129,7 +132,7 @@ void SwitchModel::fetchMapTaskResult(){
         ui task_id = p->second;
         Job *job = (*idx2JobPtr)[(*jobId2idx)[job_id]];
         //snprintf(buf, BUFSIZ, FETCH_MAP_RESULT_COMMAND, password, username, host, app_id, task_id, task_id);
-        snprintf(buf, BUFSIZE, FETCH_MAP_RESULT_COMMAND, password, username, host, job->job_id, task_id);
+        snprintf(buf, BUFSIZE, FETCH_MAP_RESULT_COMMAND, password, username, host, job->job_id, task_id/10, task_id % 10);
         printf("begin to fetch %s\n", buf);
         //system(buf);
         //int r = 0;  
@@ -340,8 +343,8 @@ void SwitchModel::insertPkt(uc* pkt_, int pkt_length_){
 #define RPC_REGISTERAPPLICATIONMASTER "registerApplicationMaster"
 
 #define RPC_DONE_TYPE 8
-#define RPC_DONE "org.apache.hadoop.mapred.TaskUmbilicalProtocol\x00\x04done"
-
+#define RPC_DONE "\x04""done"
+//org.apache.hadoop.mapred.TaskUmbilicalProtocol\x00\x04
 #define JOB_ID_PREFIX "job_"
 #define TASK_ID_PREFIX "attempt_"
 #define MAPFLAG "MAP"
@@ -400,25 +403,27 @@ void output(IPHeader* iph_, TCPHeader* tcph_){
 }
 
 void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
+
     IPHeader* iph = (IPHeader*)pkt_;
     if(iph->protocol != TCP){
         //sendPkt(qh_, nfa_);
+        //printf("it's not a tcp\n");
         delete [] pkt_;
         return;
     }
     us ip_header_length = ((us)(iph->ver_ihl & 0xF)) << 2;
     us ip_total_length = ntohs(iph->total_len);
 
-    TCPHeader * tcph = (TCPHeader*)(pkt_ + ip_header_length);
+    TCPHeader * tcph = (TCPHeader*)((char*)iph + ip_header_length);
     us tcp_header_length = ((tcph->offset >> 4) & 0x0F) << 2;
     if(tcp_header_length + ip_header_length == ip_total_length){ // this tcp has no payload
         //sendPkt(qh_, nfa_);
+        //printf("the pkt without payload\n");
         delete [] pkt_;
         return;
     }
-
     us payload_length = ip_total_length - ip_header_length - tcp_header_length;
-    char* payload = (char*)(tcph + tcp_header_length);
+    char* payload = (char*)tcph + tcp_header_length;
 
     int msg_type = 0;
     if( strmatcher->kmp_matcher(payload, payload_length, (char*)RPC_SUBMIT, std::strlen(RPC_SUBMIT)) != NULL ) msg_type = RPC_SUBMIT_TYPE;
@@ -428,16 +433,11 @@ void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
     else if( strmatcher->kmp_matcher(payload, payload_length, (char*)RPC_GETAPPLICATIONREPORT, std::strlen(RPC_GETAPPLICATIONREPORT)) != NULL ) msg_type = RPC_GETAPPLICATIONREPORT_TYPE;
     else if( strmatcher->kmp_matcher(payload, payload_length, (char*)RPC_STARTCONTAINERS, std::strlen(RPC_STARTCONTAINERS)) != NULL ) msg_type = RPC_STARTCONTAINERS_TYPE;
     else if( strmatcher->kmp_matcher(payload, payload_length, (char*)RPC_REGISTERAPPLICATIONMASTER, std::strlen(RPC_REGISTERAPPLICATIONMASTER)) != NULL  ) msg_type = RPC_REGISTERAPPLICATIONMASTER_TYPE;
-    else if( strmatcher->kmp_matcher(payload, payload_length, (char*)RPC_DONE, std::strlen(RPC_DONE)+5 ) != NULL  ) msg_type = RPC_DONE_TYPE;
+    else if( strmatcher->kmp_matcher(payload, payload_length, (char*)RPC_DONE, std::strlen(RPC_DONE)) != NULL  ) msg_type = RPC_DONE_TYPE;
     else msg_type = RPC_UNKNOWN_TYPE;
+
     if(msg_type ==1 || msg_type == 4 || msg_type == 6 || msg_type == 7 || msg_type == 8){
-        output(iph, tcph);
-        printf("msg type = %d len = %d\n", msg_type, pkt_length_);
-        for(int i=0; i < payload_length; i++){
-            if(payload[i] > 0 && payload[i] < 128) printf("%c", payload[i]);
-            else printf(".");
-        }
-        printf("\n\n");
+        printf("msg type = %d\n", msg_type);
     }
     switch(msg_type){
         case RPC_SUBMIT_TYPE : {
@@ -492,10 +492,13 @@ void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
                 printf("%s begin to start AM in %s\n", job_id_ptr, (char*)inet_ntoa(destip));
             }else{ // start Task ,we need to keep the whole packet
                 if(psh_flag){
+                    printf("psh flag\n");
                     char* yarnchild_flag = strmatcher->kmp_matcher(payload, payload_length, (char*)YARNCHILD, std::strlen(YARNCHILD));
                     int len = payload_length - (yarnchild_flag - payload);
                     task_id_ptr = strmatcher->kmp_matcher(yarnchild_flag, len, (char*)TASK_ID_PREFIX, std::strlen(TASK_ID_PREFIX));
                     job_id_ptr = task_id_ptr + std::strlen(TASK_ID_PREFIX);
+                    //printf("task_id_ptr = %s\n", task_id_ptr);
+                    //printf("job_id_ptr = %s\n", job_id_ptr);
                     int first, second, third;
                     int i = 0;
                     while(job_id_ptr[i] != '_') i++;
@@ -510,6 +513,9 @@ void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
 
                         ul jobId = std::atol(job_id_ptr) * 10000 + (ul)std::atol(job_id_ptr + first);
                         ui taskId = std::atoi(job_id_ptr + second) * 1000000 + (job_id_ptr[third] - '0');
+
+                        //printf("jobId = %llu, taskId = %u\n", jobId, taskId);
+
                         std::map<ul, std::map<ui, ui>* >::iterator ite = job2TaskSet->find(jobId);
                         std::map<ui, ui>* taskset;
                         if(ite == job2TaskSet->end()){
@@ -524,6 +530,7 @@ void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
                     job_id_ptr[JOB_ID_LENGTH] = '\0';
                     printf("%s begin to start a Task %s in %s\n", job_id_ptr, task_id_ptr, (char*)inet_ntoa(destip));
                 }else{
+                    printf("not psh\n");
                     Packet* pkt = getPacket(iport);
                     pkt->addPayload(payload, payload_length);
                     ui seq_num = ntohl(tcph->seq_num);
@@ -556,7 +563,7 @@ void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
                     while(job_id_ptr[i] != '_') i++;
                     third = ++i;
                     ul jobId = std::atol(job_id_ptr) * 10000 + (ul)std::atol(job_id_ptr + first);
-                    ui taskId = std::atoi(job_id_ptr + second) * 1000000 + (job_id_ptr[third] - '0');
+                    ui taskId = std::atoi(job_id_ptr + second) * 10 + (job_id_ptr[third] - '0');
                     waitingMapResult->add(new std::pair<ul, ui>(jobId, taskId));
 
                     struct in_addr destip;
@@ -611,7 +618,6 @@ void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
                     job_id_ptr[JOB_ID_LENGTH] = '\0';
                     printf("%s begin to start a Task %s in %s\n", job_id_ptr, task_id_ptr, (char*)inet_ntoa(destip));
 
-                    
                     removePacket(iport);
                     delete pkt;
                 }else{
@@ -622,6 +628,7 @@ void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
         }
     }
     delete [] pkt_;
+    printf("\n-------------------------\n");
 }
 
 void SwitchModel::processPkt(){

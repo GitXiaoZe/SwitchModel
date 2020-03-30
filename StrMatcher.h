@@ -1,6 +1,6 @@
 #ifndef STRMATCHER_H
 #define STRMATCHER_H
-
+#include <cstdio>
 #include <cstddef>
 #include "myType.h"
 

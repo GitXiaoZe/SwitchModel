@@ -40,7 +40,7 @@ class SwitchModel{
             idx2JobPtr = std::make_shared< std::map<ui, Job*> >();
             jobId2idx = std::make_shared< std::map<ul, ui> >();
             job2TaskSet =  std::make_shared< std::map<ul, std::map<ui, ui>* > >();
-
+            iport2Packet = std::make_shared< std::map<ul, Packet*> >();
             waitingToProcess = 
                 std::make_shared< CP_Queue< std::pair<uc*, int>* > >();
             waitingToFetch = std::make_shared< CP_Queue<ui> >();

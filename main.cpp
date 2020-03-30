@@ -103,43 +103,10 @@ void start(){
 #define BUFSIZE 4096
 
 
-
-void outputH(IPHeader* iph_, TCPHeader* tcph_){
-    struct in_addr srcaddr, destaddr;
-    srcaddr.s_addr = iph_->src_ip;
-    destaddr.s_addr = iph_->dest_ip;
-    printf("%s(%d) --> %s(%d)\n", (char *)inet_ntoa(srcaddr), ntohs(tcph_->src_port), 
-        (char*)inet_ntoa(destaddr), ntohs(tcph_->dest_port));
-}
-
-
 void pcap_cb(u_char* args, const struct pcap_pkthdr* header, const u_char* packet){
-    uc* pkt_ = (uc*)(packet + 14);
+    uc* pkt = (uc*)(packet + 14);
     if(header->len > 84){
-        //swm->insertPkt(pkt, header->len - 14);
-        int pkt_length_ = header->len - 14;
-        IPHeader* iph = (IPHeader*)pkt_;
-        if(iph->protocol != 17){
-            return;
-        }
-        us ip_header_length = ((us)(iph->ver_ihl & 0xF)) << 2;
-        us ip_total_length = ntohs(iph->total_len);
-
-        TCPHeader * tcph = (TCPHeader*)(pkt_ + ip_header_length);
-        us tcp_header_length = ((tcph->offset >> 4) & 0x0F) << 2;
-        if(tcp_header_length + ip_header_length == ip_total_length){ // this tcp has no payload
-            return;
-        }
-
-        us payload_length = ip_total_length - ip_header_length - tcp_header_length;
-        char* payload = (char*)(tcph + tcp_header_length);
-        outputH(iph, tcph);
-        printf("pkt len = %d\n", pkt_length_);
-        for(int i=0; i < payload_length; i++){
-            if(payload[i] > 0 && payload[i] < 128) printf("%c", payload[i]);
-            else printf(".");
-        }
-        printf("\n\n");
+        swm->insertPkt(pkt, header->len - 14);
     }
 }
 
@@ -163,10 +130,11 @@ int pcap_sniff(){
     }
 
     char* filterExp = "greater 100";
-    if(pcap_compile(handle, &fp, filter_exp, 0, net) < 0){
+    if(pcap_compile(handle, &fp, filterExp, 0, net) < 0){
         printf("Error pcap compile\n");
         exit(-1);
     }
+
     if(pcap_setfilter(handle, &fp) < 0){
         printf("Error set filter\n");
         exit(-1);
@@ -175,6 +143,45 @@ int pcap_sniff(){
     printf("begin to sniff\n");
     pcap_loop(handle, -1, pcap_cb, NULL);
     pcap_close(handle);
+}
+
+
+#include <iostream>
+
+#define CAPFILE "/home/hzh/Documents/NFQueue/filecap.txt.3"
+#define PKT_LENGTH 65536
+char filepkt[PKT_LENGTH << 1];
+char PKT[PKT_LENGTH];
+int file_sniff(){
+    printf("start file sniff\n");
+    freopen(CAPFILE, "r", stdin);
+    struct pcap_pkthdr header;
+    while(std::cin.getline(filepkt, PKT_LENGTH)){
+        int len = strlen(filepkt);
+        char v;
+        for(int i=0; i < len; i+=2){
+            v = 0;
+            if(filepkt[i] >= '0' && filepkt[i] <= '9'){
+                v += filepkt[i] - '0';
+            }else if(filepkt[i] >= 'a' && filepkt[i] <= 'f'){
+                v += filepkt[i] - 'a' + 10;
+            }
+            v <<= 4;
+            int j = i+1;
+            if(filepkt[j] >= '0' && filepkt[j] <= '9'){
+                v += filepkt[j] - '0';
+            }else if(filepkt[j] >= 'a' && filepkt[j] <= 'f'){
+                v += filepkt[j] - 'a' + 10;
+            }
+            PKT[i>>1] = v;
+        }
+        header.len = header.caplen = len >> 1;
+        const u_char* pointer = (const u_char*)PKT;
+        pcap_cb(NULL, &header, pointer);
+        sleep(1);
+    }
+    printf("Press Ctrl + C to exist\n");
+    while(true);
 }
 
 
@@ -197,6 +204,7 @@ int main(){
         std::thread subThread_6(process_thread, swm);
         sleep(1);
         pcap_sniff();
+        //file_sniff();
     }else{
         swm->processPkt();
     }
