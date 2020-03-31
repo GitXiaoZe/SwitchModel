@@ -53,7 +53,7 @@ ui SwitchModel::getJobIdx(char* job_id_, ui job_id_length_, bool& create){
     iport2Packet->erase(iport_);
  }
 
-#define FETCH_COMMAND "sudo -u hzh /home/tian/Ho/hadoop-3.1.1-src/hadoop-dist/target/hadoop-3.1.1/bin/hdfs dfs -get /tmp/hadoop-yarn/staging/tian/.staging/%s/job.xml /home/tian/Ho/SwitchModel/tmpfile/conf/%s_job.xml"
+#define FETCH_COMMAND "sudo -u tian /home/tian/Ho/hadoop-3.1.1-src/hadoop-dist/target/hadoop-3.1.1/bin/hdfs dfs -get /tmp/hadoop-yarn/staging/tian/.staging/%s/job.xml /home/tian/Ho/SwitchModel/tmpfile/conf/%s_job.xml"
 
 void SwitchModel::fetchCongiureFileForJob(){
     printf("begin to fetch configuration file for job\n");
@@ -114,19 +114,32 @@ void SwitchModel::configureForJob(){
 //%s: password; %s: username;  %s: host;  %s:app id;  %s:task id;  %s:task_id;
 #define FETCH_MAP_RESULT_COMMAND "sshpass -p %s scp %s@%s:/home/tian/Ho/hadoop-3.1.1-src/hadoop-dist/target/hadoop-3.1.1/tmp/nm-local-dir/tian/appcache/application_%s/output/attempt_%s_m_%06u_%u/file.out.index /home/tian/Ho/SwitchModel/tmpfile/map/%s_%06u_%u.file.out.index"
 #define LEN 3
+#define IP_LENGTH 16
+#define IP_FORMAT "%d.%d.%d.%d"
+void itoIP(ui host, char str[IP_LENGTH]){
+    uc A, B, C, D;
+    A = (host >> 24) & 0x000F;
+    B = (host >> 16) & 0x000F;
+    C = (host >> 8) & 0x000F;
+    D = host & 0x000F;
+    snprintf(str, IP_LENGTH, IP_FORMAT, A, B, 0, D);
+}
 
 void SwitchModel::fetchMapTaskResult(){
     printf("begin to fetch map task result for job\n");
     char buf[BUFSIZE];
     char* password = "NasaA108";
     char* username = "tian";
-    char* host="192.168.217.145";
+    char host[IP_LENGTH];
+    //char* host="192.168.217.145";
     std::pair<ul, ui> *p;
     while(true){
         waitingMapResult->get(p);
         ul job_id = p->first;
         ui task_id = p->second;
         Job *job = (*idx2JobPtr)[(*jobId2idx)[job_id]];
+        std::map<ui, ui>* taskset = (*job2TaskSet)[job_id];
+        itoIP((*taskset)[task_id], host);
         snprintf(buf, BUFSIZE, FETCH_MAP_RESULT_COMMAND, password, username, host, job->job_id + 4, job->job_id + 4, task_id / 10, task_id % 10, job->job_id, task_id / 10, task_id % 10);
         printf("begin to fetch %s\n", buf);
         //system(buf);
@@ -193,8 +206,8 @@ void SwitchModel::schedule(){
     char buf[BUFSIZE];
     std::pair<ui, ul> pairs[MAX_REDUCER];
     ui idx;
-    char* password;
-    char* username;
+    char* password = "NasaA108";
+    char* username = "tian";
     char* host;
     while(true){
         waitingToSchedule->get(idx);
@@ -206,7 +219,7 @@ void SwitchModel::schedule(){
         //std::sort(pairs + 1, pairs + job->reduce + 1, compare);
         snprintf(buf, BUFSIZE, ORDER_FILE_PATH, job->job_id);
         printf("begin to schedule, write results to %s\n", buf);
-        //FILE* outFile = fopen(buf, "w");
+        //FILE* outFile = fopen(buf, "w+");
         //if(outFile == NULL){
         //    printf("Error when opening file when schedule\n");
         //    continue;
@@ -402,7 +415,6 @@ void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
     IPHeader* iph = (IPHeader*)pkt_;
     if(iph->protocol != TCP){
         //sendPkt(qh_, nfa_);
-        //printf("it's not a tcp\n");
         delete [] pkt_;
         return;
     }
@@ -413,7 +425,6 @@ void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
     us tcp_header_length = ((tcph->offset >> 4) & 0x0F) << 2;
     if(tcp_header_length + ip_header_length == ip_total_length){ // this tcp has no payload
         //sendPkt(qh_, nfa_);
-        //printf("the pkt without payload\n");
         delete [] pkt_;
         return;
     }
