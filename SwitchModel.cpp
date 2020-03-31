@@ -112,7 +112,7 @@ void SwitchModel::configureForJob(){
 
 
 //%s: password; %s: username;  %s: host;  %s:app id;  %s:task id;  %s:task_id;
-#define FETCH_MAP_RESULT_COMMAND "sshpass -p %s scp %s@%s:/home/tian/Ho/hadoop-3.1.1-src/hadoop-dist/target/hadoop-3.1.1/tmp/nm-local-dir/tian/appcache/application_%s/output/attempt_%s_m_%06u_%u/file.out.index /home/tian/Ho/SwitchModel/tmpfile/map/%s_%06u_%u.file.out.index"
+#define FETCH_MAP_RESULT_COMMAND "sshpass -p %s scp %s@%s:/home/tian/Ho/hadoop-3.1.1-src/hadoop-dist/target/hadoop-3.1.1/tmp/nm-local-dir/usercache/tian/appcache/application_%s/output/attempt_%s_m_%06u_%u/file.out.index /home/tian/Ho/SwitchModel/tmpfile/map/%s_%06u_%u.file.out.index"
 #define LEN 3
 #define IP_LENGTH 16
 #define IP_FORMAT "%u.%u.%u.%u"
@@ -176,6 +176,7 @@ void SwitchModel::setReducerSize(){
         for(int i=0; i < job->reduce; i++){
             int v = fread(data, sizeof(ul), 3, inFile);
             assert(v==3);
+            printf("%lu, %lu, %lu\n", data[0], data[1], data[2]);
             job->mapTask_size[i] += convert(data[1]); 
         }
         fclose(inFile);
@@ -222,6 +223,7 @@ void SwitchModel::schedule(){
             printf("Error when opening file when schedule\n");
             continue;
         }
+        fprintf(outFile, "HelloWorld\n");
         for(int i=1; i <= job->reduce; i++){
             fprintf(outFile, "%d ", pairs[i].first);
         }
