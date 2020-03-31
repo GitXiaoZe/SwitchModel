@@ -63,7 +63,7 @@ void SwitchModel::fetchCongiureFileForJob(){
         waitingToFetch->get(job_index);
         Job* job = (*idx2JobPtr)[job_index];
         snprintf(buf, BUFSIZE, FETCH_COMMAND, job->job_id, job->job_id);
-        printf("begin to fetch %s in %s\n", job->job_id, buf);
+        printf("begin to fetch %s configuration file\n", job->job_id);
         //system(buf);
         //int res = 0;
         //wait(&res);
@@ -85,8 +85,9 @@ void SwitchModel::configureForJob(){
         waitingToConfigure->get(job_index);
         Job* job = (*idx2JobPtr)[job_index];
         snprintf(buf, BUFSIZE, CONF_FILE_PATH, job->job_id);
-        printf("begin to conf %s in %s\n", job->job_id, buf);
+        printf("begin to conf %s in %s, with %d map & %d reduce\n", job->job_id, buf, map, reduce);
         job->setTask(map, reduce, TASKRATIO);
+
         /*
         TiXmlDocument* doc = new TiXmlDocument(CONF_FILE_PATH);
         if(!doc->LoadFile()){
@@ -140,7 +141,7 @@ void SwitchModel::fetchMapTaskResult(){
         std::map<ui, ui>* taskset = (*job2TaskSet)[job_id];
         itoIP((*taskset)[task_id], host);
         snprintf(buf, BUFSIZE, FETCH_MAP_RESULT_COMMAND, password, username, host, job->job_id + 4, job->job_id + 4, task_id / 10, task_id % 10, job->job_id, task_id / 10, task_id % 10);
-        printf("begin to fetch %s\n", buf);
+        printf("begin to fetch %s_%06u_%u.file.out.index in %s\n", job->job_id, task_id / 10, task_id%10, host);
         system(buf);
         int r = 0;  
         wait(&r);
@@ -167,7 +168,7 @@ void SwitchModel::setReducerSize(){
         Job *job = (*idx2JobPtr)[idx];
         if(job->hasReceived < job->map_ratio){
             snprintf(buf, BUFSIZE, MAP_RESULT_FILE_PATH, job->job_id, task_id / 10, task_id % 10);
-            printf("begin to set task : %s\n" ,buf);
+            printf("begin to set task : %s\n", job->job_id);
             FILE* inFile = fopen(buf, "rb");
             if(inFile == NULL){
                 printf("Error occurs when opening files %s \n", buf);
@@ -224,7 +225,6 @@ void SwitchModel::schedule(){
             printf("Error when opening file when schedule\n");
             continue;
         }
-        fprintf(outFile, "HelloWorld\n");
         for(int i=1; i <= job->reduce; i++){
             fprintf(outFile, "%d ", pairs[i].first);
         }
@@ -232,9 +232,9 @@ void SwitchModel::schedule(){
         itoIP(job->host_ip, host);
         snprintf(buf, BUFSIZE, SEND_ORDER_COMMAND, password, job->job_id, username, host, job->job_id);
         printf("transfer results : %s\n", buf);
-        //system(buf);
-        //int res = 0;
-        //wait(&res);
+        system(buf);
+        int res = 0;
+        wait(&res);
     }
 }
 
@@ -500,7 +500,7 @@ void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
                 printf("%s begin to start AM in %s\n", job_id_ptr, (char*)inet_ntoa(destip));
             }else{ // start Task ,we need to keep the whole packet
                 if(psh_flag){
-                    printf("psh flag\n");
+                    //printf("psh flag\n");
                     char* yarnchild_flag = strmatcher->kmp_matcher(payload, payload_length, (char*)YARNCHILD, std::strlen(YARNCHILD));
                     int len = payload_length - (yarnchild_flag - payload);
                     task_id_ptr = strmatcher->kmp_matcher(yarnchild_flag, len, (char*)TASK_ID_PREFIX, std::strlen(TASK_ID_PREFIX));
@@ -536,7 +536,8 @@ void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
                     struct in_addr destip;
                     destip.s_addr = iph->dest_ip;
                     job_id_ptr[JOB_ID_LENGTH] = '\0';
-                    printf("%s begin to start a Task %s in %s\n", job_id_ptr, task_id_ptr, (char*)inet_ntoa(destip));
+                    task_id_ptr[38] = '\0';
+                    printf("job begin to start a Task %s in %s\n", task_id_ptr, (char*)inet_ntoa(destip));
                 }else{
                     printf("not psh\n");
                     Packet* pkt = getPacket(iport);
@@ -624,6 +625,7 @@ void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
                     struct in_addr destip;
                     destip.s_addr = iph->dest_ip;
                     job_id_ptr[JOB_ID_LENGTH] = '\0';
+                    task_id_ptr[38] = '\0';
                     printf("%s begin to start a Task %s in %s\n", job_id_ptr, task_id_ptr, (char*)inet_ntoa(destip));
 
                     removePacket(iport);
