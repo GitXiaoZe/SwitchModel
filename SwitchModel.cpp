@@ -80,7 +80,7 @@ void SwitchModel::configureForJob(){
     printf("begin to configure for job\n");
     char buf[BUFSIZE];
     unsigned int job_index;
-    int map, reduce;
+    int map = 100, reduce = 10;
     while(true){
         waitingToConfigure->get(job_index);
         Job* job = (*idx2JobPtr)[job_index];
@@ -165,25 +165,26 @@ void SwitchModel::setReducerSize(){
         ui task_id = p->second;
         ui idx = (*jobId2idx)[job_id];
         Job *job = (*idx2JobPtr)[idx];
-        snprintf(buf, BUFSIZE, MAP_RESULT_FILE_PATH, job->job_id, task_id / 10, task_id % 10);
-        printf("begin to set task : %s\n" ,buf);
-        FILE* inFile = fopen(buf, "rb");
-        if(inFile == NULL){
-            printf("Error occurs when opening files %s \n", buf);
-            continue;//???
+        if(job->hasReceived < job->map_ratio){
+            snprintf(buf, BUFSIZE, MAP_RESULT_FILE_PATH, job->job_id, task_id / 10, task_id % 10);
+            printf("begin to set task : %s\n" ,buf);
+            FILE* inFile = fopen(buf, "rb");
+            if(inFile == NULL){
+                printf("Error occurs when opening files %s \n", buf);
+                continue;//???
+            }
+            ul data[3];
+            for(int i=0; i < job->reduce; i++){
+                int v = fread(data, sizeof(ul), 3, inFile);
+                assert(v==3);
+                job->mapTask_size[i] += convert(data[1]); 
+            }
+            fclose(inFile);
+            job->hasReceived++;
+            if(job->hasReceived == job->map_ratio){
+                waitingToSchedule->add(idx);
+            }
         }
-        ul data[3];
-        for(int i=0; i < job->reduce; i++){
-            int v = fread(data, sizeof(ul), 3, inFile);
-            assert(v==3);
-            printf("%lu, %lu, %lu\n", data[0], data[1], data[2]);
-            job->mapTask_size[i] += convert(data[1]); 
-        }
-        fclose(inFile);
-        //job->hasReceived++;
-        //if(job->hasReceived == job->map_ratio){
-            waitingToSchedule->add(idx);
-        //}
         delete p;
     }
 }
