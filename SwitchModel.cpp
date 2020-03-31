@@ -520,7 +520,7 @@ void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
                         third = ++i;
 
                         ul jobId = std::atol(job_id_ptr) * 10000 + (ul)std::atol(job_id_ptr + first);
-                        ui taskId = std::atoi(job_id_ptr + second) * 1000000 + (job_id_ptr[third] - '0');
+                        ui taskId = std::atoi(job_id_ptr + second) * 10 + (job_id_ptr[third] - '0');
 
                         //printf("jobId = %llu, taskId = %u\n", jobId, taskId);
 
@@ -535,7 +535,6 @@ void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
                     
                     struct in_addr destip;
                     destip.s_addr = iph->dest_ip;
-                    job_id_ptr[JOB_ID_LENGTH] = '\0';
                     task_id_ptr[38] = '\0';
                     printf("job begin to start a Task %s in %s\n", task_id_ptr, (char*)inet_ntoa(destip));
                 }else{
@@ -577,7 +576,7 @@ void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
 
                     struct in_addr destip;
                     destip.s_addr = iph->dest_ip;
-                    job_id_ptr[JOB_ID_LENGTH] = '\0';
+                    task_id_ptr[38] = '\0';
                     printf("%s finish a Task %s\n", job_id_ptr, task_id_ptr);
                 }
             }
@@ -624,7 +623,6 @@ void SwitchModel::parsePacket(uc* pkt_, int pkt_length_){
 
                     struct in_addr destip;
                     destip.s_addr = iph->dest_ip;
-                    job_id_ptr[JOB_ID_LENGTH] = '\0';
                     task_id_ptr[38] = '\0';
                     printf("%s begin to start a Task %s in %s\n", job_id_ptr, task_id_ptr, (char*)inet_ntoa(destip));
 
