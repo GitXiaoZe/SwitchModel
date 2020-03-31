@@ -131,7 +131,6 @@ void SwitchModel::fetchMapTaskResult(){
     char* password = "NasaA108";
     char* username = "tian";
     char host[IP_LENGTH];
-    //char* host="192.168.217.145";
     std::pair<ul, ui> *p;
     while(true){
         waitingMapResult->get(p);
@@ -142,18 +141,18 @@ void SwitchModel::fetchMapTaskResult(){
         itoIP((*taskset)[task_id], host);
         snprintf(buf, BUFSIZE, FETCH_MAP_RESULT_COMMAND, password, username, host, job->job_id + 4, job->job_id + 4, task_id / 10, task_id % 10, job->job_id, task_id / 10, task_id % 10);
         printf("begin to fetch %s\n", buf);
-        //system(buf);
-        //int r = 0;  
-        //wait(&r);
+        system(buf);
+        int r = 0;  
+        wait(&r);
         waitingToSet->add(p);
     }
 }
 
 #define MAP_RESULT_FILE_PATH "/home/tian/Ho/SwitchModel/tmpfile/map/%s_%06u_%u.file.out.index"
-unsigned long convert(unsigned long d){
+ul convert(ul d){
     unsigned char *str = (unsigned char*)&d;
-    return ((unsigned long)str[0] << 56) + ((unsigned long)str[1] << 48) + ((unsigned long)str[2] << 40) + ((unsigned long)str[3] << 32) 
-            + ((unsigned long)str[4] << 24) + ((unsigned long)str[5] << 16) + ((unsigned long)str[6] << 8) + ((unsigned long)str[7]);
+    return    ((ul)str[0] << 56) + ((ul)str[1] << 48) + ((ul)str[2] << 40) + ((ul)str[3] << 32) 
+            + ((ul)str[4] << 24) + ((ul)str[5] << 16) + ((ul)str[6] << 8) + ((ul)str[7]);
 }
 
 void SwitchModel::setReducerSize(){
@@ -168,18 +167,18 @@ void SwitchModel::setReducerSize(){
         Job *job = (*idx2JobPtr)[idx];
         snprintf(buf, BUFSIZE, MAP_RESULT_FILE_PATH, job->job_id, task_id / 10, task_id % 10);
         printf("begin to set task : %s\n" ,buf);
-        //FILE* inFile = fopen(buf, "rb");
-        //if(inFile == NULL){
-        //    printf("Error occurs when opening files %s \n", buf);
-        //    continue;//???
-        //}
-        //ul data[3];
-        //for(int i=0; i < job->reduce; i++){
-        //    int v = fread(data, sizeof(unsigned long), 3, inFile);
-        //    assert(v==3);
-        //    job->mapTask_size[i] += convert(data[1]); 
-        //}
-        //fclose(inFile);
+        FILE* inFile = fopen(buf, "rb");
+        if(inFile == NULL){
+            printf("Error occurs when opening files %s \n", buf);
+            continue;//???
+        }
+        ul data[3];
+        for(int i=0; i < job->reduce; i++){
+            int v = fread(data, sizeof(ul), 3, inFile);
+            assert(v==3);
+            job->mapTask_size[i] += convert(data[1]); 
+        }
+        fclose(inFile);
         //job->hasReceived++;
         //if(job->hasReceived == job->map_ratio){
             waitingToSchedule->add(idx);
@@ -211,22 +210,22 @@ void SwitchModel::schedule(){
     while(true){
         waitingToSchedule->get(idx);
         Job* job = (*idx2JobPtr)[idx];
-        //for(int i=1; i <= job->reduce; i++){
-        //    pairs[i].first = i;
-        //    pairs[i].second = (job->mapTask_size)[i];
-        //}
-        //std::sort(pairs + 1, pairs + job->reduce + 1, compare);
+        for(int i=1; i <= job->reduce; i++){
+            pairs[i].first = i;
+            pairs[i].second = (job->mapTask_size)[i];
+        }
+        std::sort(pairs + 1, pairs + job->reduce + 1, compare);
         snprintf(buf, BUFSIZE, ORDER_FILE_PATH, job->job_id);
         printf("begin to schedule, write results to %s\n", buf);
-        //FILE* outFile = fopen(buf, "w+");
-        //if(outFile == NULL){
-        //    printf("Error when opening file when schedule\n");
-        //    continue;
-        //}
-        //for(int i=1; i <= job->reduce; i++){
-        //    fprintf(outFile, "%d ", pairs[i].first);
-        //}
-        //fclose(outFile);
+        FILE* outFile = fopen(buf, "w+");
+        if(outFile == NULL){
+            printf("Error when opening file when schedule\n");
+            continue;
+        }
+        for(int i=1; i <= job->reduce; i++){
+            fprintf(outFile, "%d ", pairs[i].first);
+        }
+        fclose(outFile);
         itoIP(job->host_ip, host);
         snprintf(buf, BUFSIZE, SEND_ORDER_COMMAND, password, job->job_id, username, host, job->job_id);
         printf("transfer results : %s\n", buf);

@@ -193,20 +193,17 @@ int main(){
         printf("swm is null\n");
         exit(-1);
     }
-    if(1){
-        printf("begin to start()\n");
-        sleep(1);
-        std::thread subThread_1(schedule_thread, swm);
-        std::thread subThread_2(setReducerSize_thread, swm);
-        std::thread subThread_3(fetchMapTaskResult_thread, swm);
-        std::thread subThread_4(configureForJob_thread, swm);
-        std::thread subThread_5(fetchConfigureFileForJob_thread, swm);
-        std::thread subThread_6(process_thread, swm);
-        sleep(1);
-        //pcap_sniff();
-        file_sniff();
-    }else{
-        swm->processPkt();
-    }
+    printf("begin to start()\n");
+    sleep(1);
+    std::thread subThread_1(schedule_thread, swm);
+    std::thread subThread_2(setReducerSize_thread, swm);
+    std::thread subThread_3(fetchMapTaskResult_thread, swm);
+    std::thread subThread_4(configureForJob_thread, swm);
+    std::thread subThread_5(fetchConfigureFileForJob_thread, swm);
+    std::thread subThread_6(process_thread, swm);
+    sleep(1);
+    pcap_sniff();
+    //file_sniff();
+ 
     return 0;
 }
