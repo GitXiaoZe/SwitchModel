@@ -115,13 +115,13 @@ void SwitchModel::configureForJob(){
 #define FETCH_MAP_RESULT_COMMAND "sshpass -p %s scp %s@%s:/home/tian/Ho/hadoop-3.1.1-src/hadoop-dist/target/hadoop-3.1.1/tmp/nm-local-dir/tian/appcache/application_%s/output/attempt_%s_m_%06u_%u/file.out.index /home/tian/Ho/SwitchModel/tmpfile/map/%s_%06u_%u.file.out.index"
 #define LEN 3
 #define IP_LENGTH 16
-#define IP_FORMAT "%d.%d.%d.%d"
+#define IP_FORMAT "%u.%u.%u.%u"
 void itoIP(ui host, char str[IP_LENGTH]){
     uc A, B, C, D;
-    A = (host >> 24) & 0x000F;
-    B = (host >> 16) & 0x000F;
-    C = (host >> 8) & 0x000F;
-    D = host & 0x000F;
+    A = (host & 0xFF000000) >> 24;
+    B = (host & 0x00FF0000) >> 16;
+    C = (host & 0x0000FF00) >> 8;
+    D = host & 0x000000FF;
     snprintf(str, IP_LENGTH, IP_FORMAT, A, B, 0, D);
 }
 
@@ -193,7 +193,6 @@ void SwitchModel::setReducerSize(){
 #define ORDER_FILE_PATH "/home/tian/Ho/SwitchModel/tmpfile/map/%s.file.order"
 
 //%s: password; %s: username;  %s: host;  %s:app id;  %s:task id;  %s:task_id;
-//#define FETCH_MAP_RESULT_COMMAND "sshpass -p %s scp %s@%s:/home/tian/Ho/hadoop-3.1.1-src/hadoop-dist/target/hadoop-3.1.1/tmp/nm-local-dir/tian/appcache/%s/output/%s/file.out.index /home/hzh/Documents/NFQueue/conf/%s.file.index.out"
 #define SEND_ORDER_COMMAND "sshpass -p %s scp /home/tian/Ho/SwitchModel/tmpfile/map/%s.file.order %s@%s:/home/tian/Ho/%s.file.order"
 
 
@@ -208,7 +207,7 @@ void SwitchModel::schedule(){
     ui idx;
     char* password = "NasaA108";
     char* username = "tian";
-    char* host;
+    char host[IP_LENGTH];
     while(true){
         waitingToSchedule->get(idx);
         Job* job = (*idx2JobPtr)[idx];
@@ -228,6 +227,7 @@ void SwitchModel::schedule(){
         //    fprintf(outFile, "%d ", pairs[i].first);
         //}
         //fclose(outFile);
+        itoIP(job->host_ip, host);
         snprintf(buf, BUFSIZE, SEND_ORDER_COMMAND, password, job->job_id, username, host, job->job_id);
         printf("transfer results : %s\n", buf);
         //system(buf);

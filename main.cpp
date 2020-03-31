@@ -203,8 +203,8 @@ int main(){
         std::thread subThread_5(fetchConfigureFileForJob_thread, swm);
         std::thread subThread_6(process_thread, swm);
         sleep(1);
-        pcap_sniff();
-        //file_sniff();
+        //pcap_sniff();
+        file_sniff();
     }else{
         swm->processPkt();
     }
