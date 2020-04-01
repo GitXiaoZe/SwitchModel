@@ -74,13 +74,13 @@ void SwitchModel::fetchCongiureFileForJob(){
 #define CONF_FILE_PATH "/home/tian/Ho/SwitchModel/tmpfile/conf/%s_job.xml"
 #define CONF_MAPS "mapreduce.job.maps"
 #define CONF_REDUCES "mapreduce.job.reduces"
-#define TASKRATIO 0.6
+#define TASKRATIO 0.1
 
 void SwitchModel::configureForJob(){
     printf("begin to configure for job\n");
     char buf[BUFSIZE];
     unsigned int job_index;
-    int map = 100, reduce = 10;
+    int map = 1000, reduce = 128;
     while(true){
         waitingToConfigure->get(job_index);
         Job* job = (*idx2JobPtr)[job_index];
@@ -191,7 +191,7 @@ void SwitchModel::setReducerSize(){
 }
 
 
-#define MAX_REDUCER 100
+#define MAX_REDUCER 200
 #define ORDER_FILE_PATH "/home/tian/Ho/SwitchModel/tmpfile/map/%s.file.order"
 
 //%s: password; %s: username;  %s: host;  %s:app id;  %s:task id;  %s:task_id;
@@ -213,7 +213,7 @@ void SwitchModel::schedule(){
     while(true){
         waitingToSchedule->get(idx);
         Job* job = (*idx2JobPtr)[idx];
-        for(int i=1; i <= job->reduce; i++){
+        for(int i=0; i < job->reduce; i++){
             pairs[i].first = i;
             pairs[i].second = (job->mapTask_size)[i];
         }
@@ -225,7 +225,7 @@ void SwitchModel::schedule(){
             printf("Error when opening file when schedule\n");
             continue;
         }
-        for(int i=1; i <= job->reduce; i++){
+        for(int i=0; i < job->reduce; i++){
             fprintf(outFile, "%d ", pairs[i].first);
         }
         fclose(outFile);
