@@ -64,9 +64,9 @@ void SwitchModel::fetchCongiureFileForJob(){
         Job* job = (*idx2JobPtr)[job_index];
         snprintf(buf, BUFSIZE, FETCH_COMMAND, job->job_id, job->job_id);
         printf("begin to fetch %s configuration file\n", job->job_id);
-        //system(buf);
-        //int res = 0;
-        //wait(&res);
+        system(buf);
+        int res = 0;
+        wait(&res);
         waitingToConfigure->add(job_index);
     }
 }
@@ -80,7 +80,7 @@ void SwitchModel::configureForJob(){
     printf("begin to configure for job\n");
     char buf[BUFSIZE];
     unsigned int job_index;
-    int map = 1000, reduce = 128;
+    int map = 1200, reduce = 150;
     while(true){
         waitingToConfigure->get(job_index);
         Job* job = (*idx2JobPtr)[job_index];
@@ -88,7 +88,6 @@ void SwitchModel::configureForJob(){
         printf("begin to conf %s in %s, with %d map & %d reduce\n", job->job_id, buf, map, reduce);
         job->setTask(map, reduce, TASKRATIO);
 
-        /*
         TiXmlDocument* doc = new TiXmlDocument(CONF_FILE_PATH);
         if(!doc->LoadFile()){
             printf("Error msg %s\n", doc->ErrorDesc());
@@ -107,7 +106,7 @@ void SwitchModel::configureForJob(){
             }
             job->setTask(map, reduce, TASKRATIO);
         }
-        */
+        
     }
 }
 
